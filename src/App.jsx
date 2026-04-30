@@ -250,7 +250,7 @@ async function fetchLiveItems() {
   while (hasMore) {
     const body = {
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1000,
+      max_tokens: 8000,
       messages:[{role:"user",content:`Fetch board ${BOARD_ID} items with columns ${colIds.join(",")}${cursor?` cursor ${cursor}`:""} limit 100. Return ONLY JSON: {"items":[{id,name,lead,status,createdDate,completedDate}],"nextCursor":null}. lead=multiple_person_mm1myz1a text, status=color_mm1m5tvr text, createdDate=pulse_log_mm1z7t4v first 10 chars (YYYY-MM-DD), completedDate=date_mm1zzss8 value or null.`}],
       mcp_servers:[{type:"url",url:"https://mcp.monday.com/mcp",name:"monday"}]
     };
