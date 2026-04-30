@@ -256,15 +256,18 @@ async function fetchLiveItems() {
     };
     const resp = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     const data = await resp.json();
+    console.log("Claude raw response:", JSON.stringify(data));
     const txt = data.content?.find(b=>b.type==="text")?.text||"";
+    console.log("Claude text:", txt);
     try {
       const m = txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
-      if(!m) break;
+      if(!m){ console.warn("No JSON found in response"); break; }
       const p = JSON.parse(m[0]);
+      console.log("Parsed items:", p.items?.length);
       all = all.concat(p.items||[]);
       cursor = p.nextCursor||null;
       hasMore = !!cursor;
-    } catch(e){ break; }
+    } catch(e){ console.error("Parse error:", e); break; }
   }
   return all.map(item => ({
     ...item,
