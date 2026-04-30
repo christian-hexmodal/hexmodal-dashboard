@@ -196,6 +196,9 @@ const SEED_ITEMS = [
 ];
 
 const BOARD_ID = "18404792373";
+// Set your Anthropic API key in .env as VITE_ANTHROPIC_KEY
+// In Vercel: add VITE_ANTHROPIC_KEY to your project environment variables
+const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
 const MAX_WEEKS = 10;
 
 // ─── TUESDAY-START WEEK NUMBER ────────────────────────────────────────────────
@@ -579,7 +582,7 @@ Give a single short paragraph (2-3 sentences max) with one specific, actionable 
 
       const resp = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"},
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 150,
