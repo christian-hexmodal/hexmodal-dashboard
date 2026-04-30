@@ -779,6 +779,7 @@ function Dashboard(){
   const counts=useMemo(()=>{const c={done:0,open:0,late:0,stuck:0};classified.forEach(i=>{c[i.cls]=(c[i.cls]||0)+1;});return c;},[classified]);
   const newThisWeek=classified.filter(i=>i.weekCreated===selectedWeek).length;
   const carryoverCount=classified.filter(i=>i.isCarryover).length;
+  const unplannedCount=filteredWeekItems.filter(i=>i.name?.startsWith("[SPIKE]")).length;
 
   const personRows=useMemo(()=>{
     const map={};
@@ -892,13 +893,14 @@ function Dashboard(){
       </div>
 
       {/* KPI ROW */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,marginBottom:16}}>
         <KPI label="Active" value={filteredWeekItems.length} color={C.accent}/>
         <KPI label="New" value={newThisWeek} sub={`${carryoverCount} carry`} color={C.carryover}/>
         <KPI label="Done" value={counts.done} color={C.done}/>
         <KPI label="Open" value={counts.open} color={C.open}/>
         <KPI label="Late" value={counts.late} color={C.late}/>
         <KPI label="Stuck" value={counts.stuck} color={C.stuck}/>
+        <KPI label="Unplanned" value={unplannedCount} color={C.muted}/>
       </div>
 
       {/* SCORE CARD */}
