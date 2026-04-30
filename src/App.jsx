@@ -671,8 +671,49 @@ function PersonFilterBar({people, selected, onSelect}) {
   );
 }
 
+// ─── PASSWORD GATE ────────────────────────────────────────────────────────────
+const APP_PASSWORD = import.meta.env.VITE_APP_PASSWORD;
+const SESSION_KEY = "hx_auth";
+
+function PasswordGate({ onAuth }) {
+  const [input, setInput] = useState("");
+  const [error, setError] = useState(false);
+
+  const submit = () => {
+    if (input === APP_PASSWORD) {
+      sessionStorage.setItem(SESSION_KEY, "1");
+      onAuth();
+    } else {
+      setError(true);
+      setInput("");
+    }
+  };
+
+  return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#07090f"}}>
+      <div style={{display:"flex",flexDirection:"column",gap:12,alignItems:"center"}}>
+        <span style={{color:"#dde1ec",fontFamily:"monospace",fontSize:14,letterSpacing:"0.08em",marginBottom:4}}>HEXMODAL</span>
+        <input
+          autoFocus
+          type="password"
+          placeholder="Password"
+          value={input}
+          onChange={e=>{setInput(e.target.value);setError(false);}}
+          onKeyDown={e=>e.key==="Enter"&&submit()}
+          style={{background:"#0d1117",border:`1px solid ${error?"#e05c5c":"#161d2b"}`,borderRadius:6,padding:"8px 14px",color:"#dde1ec",fontFamily:"monospace",fontSize:13,outline:"none",width:200}}
+        />
+        {error && <span style={{color:"#e05c5c",fontFamily:"monospace",fontSize:11}}>incorrect password</span>}
+        <button onClick={submit} style={{background:"#60a5fa",color:"#07090f",border:"none",borderRadius:6,padding:"7px 24px",fontFamily:"monospace",fontSize:12,cursor:"pointer",letterSpacing:"0.06em"}}>ENTER</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App(){
+  const [authed, setAuthed] = useState(!APP_PASSWORD || sessionStorage.getItem(SESSION_KEY) === "1");
+  if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
+
   const [items,setItems]=useState(SEED_ITEMS);
   const [loading,setLoading]=useState(false);
   const [refreshMsg,setRefreshMsg]=useState(null);
