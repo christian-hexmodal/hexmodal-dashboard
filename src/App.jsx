@@ -239,35 +239,23 @@ function getItemsActiveInWeek(allItems, week) {
   });
 }
 
-// ─── LIVE FETCH VIA MCP ───────────────────────────────────────────────────────
-// Returns raw dates; we compute Tuesday-start weeks client-side.
+// ─── LIVE FETCH VIA MONDAY GRAPHQL ───────────────────────────────────────────
 async function fetchLiveItems() {
-  const colIds = ["multiple_person_mm1myz1a","color_mm1m5tvr","date_mm1zzss8","pulse_log_mm1z7t4v"];
   let all = [];
   let cursor = null;
   let hasMore = true;
 
   while (hasMore) {
-    const body = {
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 8000,
-      messages:[{role:"user",content:`Fetch board ${BOARD_ID} items with columns ${colIds.join(",")}${cursor?` cursor ${cursor}`:""} limit 100. Return ONLY JSON: {"items":[{id,name,lead,status,createdDate,completedDate}],"nextCursor":null}. lead=multiple_person_mm1myz1a text, status=color_mm1m5tvr text, createdDate=pulse_log_mm1z7t4v first 10 chars (YYYY-MM-DD), completedDate=date_mm1zzss8 value or null.`}],
-      mcp_servers:[{type:"url",url:"https://mcp.monday.com/mcp",name:"monday"}]
-    };
-    const resp = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const resp = await fetch("/api/monday", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ cursor }),
+    });
     const data = await resp.json();
-    console.log("Claude raw response:", JSON.stringify(data));
-    const txt = data.content?.find(b=>b.type==="text")?.text||"";
-    console.log("Claude text:", txt);
-    try {
-      const m = txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
-      if(!m){ console.warn("No JSON found in response"); break; }
-      const p = JSON.parse(m[0]);
-      console.log("Parsed items:", p.items?.length);
-      all = all.concat(p.items||[]);
-      cursor = p.nextCursor||null;
-      hasMore = !!cursor;
-    } catch(e){ console.error("Parse error:", e); break; }
+    if (data.error) throw new Error(JSON.stringify(data.error));
+    all = all.concat(data.items || []);
+    cursor = data.nextCursor || null;
+    hasMore = !!cursor;
   }
   return all.map(item => ({
     ...item,
