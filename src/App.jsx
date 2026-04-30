@@ -198,9 +198,6 @@ const SEED_ITEMS = [
 ];
 
 const BOARD_ID = "18404792373";
-// Set your Anthropic API key in .env as VITE_ANTHROPIC_KEY
-// In Vercel: add VITE_ANTHROPIC_KEY to your project environment variables
-const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
 const MAX_WEEKS = 10;
 
 // ─── TUESDAY-START WEEK NUMBER ────────────────────────────────────────────────
@@ -257,7 +254,7 @@ async function fetchLiveItems() {
       messages:[{role:"user",content:`Fetch board ${BOARD_ID} items with columns ${colIds.join(",")}${cursor?` cursor ${cursor}`:""} limit 100. Return ONLY JSON: {"items":[{id,name,lead,status,createdDate,completedDate}],"nextCursor":null}. lead=multiple_person_mm1myz1a text, status=color_mm1m5tvr text, createdDate=pulse_log_mm1z7t4v first 10 chars (YYYY-MM-DD), completedDate=date_mm1zzss8 value or null.`}],
       mcp_servers:[{type:"url",url:"https://mcp.monday.com/mcp",name:"monday"}]
     };
-    const resp = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const resp = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     const data = await resp.json();
     const txt = data.content?.find(b=>b.type==="text")?.text||"";
     try {
@@ -582,9 +579,9 @@ function WeekScoreCard({classified, carryoverCount, weekItems, selectedWeek, all
 
 Give a single short paragraph (2-3 sentences max) with one specific, actionable improvement suggestion for next week. Be direct and practical. No bullet points, no headers.`;
 
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetch("/api/claude", {
         method: "POST",
-        headers: {"Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"},
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 150,
