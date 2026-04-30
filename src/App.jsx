@@ -718,11 +718,13 @@ export default function App(){
 
 function Dashboard(){
 
-  const [items,setItems]=useState(SEED_ITEMS);
+  const [items,setItems]=useState(()=>{
+    try{ const s=localStorage.getItem("hx_items"); return s?JSON.parse(s):SEED_ITEMS; }catch{ return SEED_ITEMS; }
+  });
   const [loading,setLoading]=useState(false);
   const [refreshMsg,setRefreshMsg]=useState(null);
   const [selectedWeek,setSelectedWeek]=useState(18);
-  const [dataSource,setDataSource]=useState("seed");
+  const [dataSource,setDataSource]=useState(()=>localStorage.getItem("hx_items")?"live":"seed");
   const [themeName,setThemeName]=useState("dark");
   const [selectedPerson,setSelectedPerson]=useState(null);
   const C = THEMES[themeName];
@@ -731,7 +733,7 @@ function Dashboard(){
     setLoading(true);setRefreshMsg("Fetching live data from Monday...");
     try{
       const live=await fetchLiveItems();
-      if(live.length>0){setItems(live);setDataSource("live");setRefreshMsg(`✓ Loaded ${live.length} items live`);}
+      if(live.length>0){setItems(live);setDataSource("live");localStorage.setItem("hx_items",JSON.stringify(live));setRefreshMsg(`✓ Loaded ${live.length} items live`);}
       else{setRefreshMsg("No data returned, keeping cached data");}
     }catch(e){setRefreshMsg("Refresh failed: "+e.message);}
     finally{setLoading(false);setTimeout(()=>setRefreshMsg(null),4000);}
