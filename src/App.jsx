@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
-// ─── STATIC SEED DATA (all 185 items as of Apr 29 2026) ──────────────────────
+// ─── SEED DATA START ──────────────────────────────────────────────────────────
 const SEED_ITEMS = [
   // ── Week 13 ──────────────────────────────────────────────────────────────
   {id:"11585056720",name:"1,000 Images Added to Training Data",lead:"Eric Zhang",status:"Done",weekCreated:13,weekDone:13,createdDate:"2026-03-24",completedDate:"2026-03-28"},
@@ -196,6 +196,7 @@ const SEED_ITEMS = [
   {id:"11870669637",name:"Review Rodrigo's tickets",lead:"Haemin Kim",status:"Done by Friday",weekCreated:18,weekDone:null,createdDate:"2026-04-28",completedDate:null},
   {id:"11878241676",name:"HF-01 · Collect resource links from Will — HEX-F",lead:"Christian De Abreu",status:"Done by Friday",weekCreated:18,weekDone:null,createdDate:"2026-04-29",completedDate:null},
 ];
+// ─── SEED DATA END ────────────────────────────────────────────────────────────
 
 const BOARD_ID = "18404792373";
 const MAX_WEEKS = 10;
@@ -725,7 +726,9 @@ function Dashboard(){
   const [refreshMsg,setRefreshMsg]=useState(null);
   const [selectedWeek,setSelectedWeek]=useState(18);
   const [dataSource,setDataSource]=useState(()=>localStorage.getItem("hx_items")?"live":"seed");
-  const [themeName,setThemeName]=useState("dark");
+  const [themeName,setThemeName]=useState("light");
+  const [pendingSeed,setPendingSeed]=useState(null);
+  const [seedMsg,setSeedMsg]=useState(null);
   const [selectedPerson,setSelectedPerson]=useState(null);
   const C = THEMES[themeName];
 
@@ -733,11 +736,24 @@ function Dashboard(){
     setLoading(true);setRefreshMsg("Fetching live data from Monday...");
     try{
       const live=await fetchLiveItems();
-      if(live.length>0){setItems(live);setDataSource("live");localStorage.setItem("hx_items",JSON.stringify(live));setRefreshMsg(`✓ Loaded ${live.length} items live`);}
+      if(live.length>0){setItems(live);setDataSource("live");localStorage.setItem("hx_items",JSON.stringify(live));setPendingSeed(live);setRefreshMsg(`✓ Loaded ${live.length} items live`);}
       else{setRefreshMsg("No data returned, keeping cached data");}
     }catch(e){setRefreshMsg("Refresh failed: "+e.message);}
     finally{setLoading(false);setTimeout(()=>setRefreshMsg(null),4000);}
   },[]);
+
+  const handleSaveSeed=useCallback(async()=>{
+    if(!pendingSeed) return;
+    setSeedMsg("Saving...");
+    try{
+      const resp=await fetch("/api/save-seed",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:pendingSeed})});
+      const data=await resp.json();
+      if(!resp.ok) throw new Error(data.error||"Failed");
+      setSeedMsg("✓ Seed data updated");
+      setPendingSeed(null);
+    }catch(e){setSeedMsg("Failed: "+e.message);}
+    finally{setTimeout(()=>setSeedMsg(null),4000);}
+  },[pendingSeed]);
 
   const allWeeks=useMemo(()=>[...new Set(items.map(i=>i.weekCreated).filter(Boolean))].sort((a,b)=>a-b),[items]);
   const displayWeeks=allWeeks.slice(-MAX_WEEKS);
@@ -854,6 +870,13 @@ function Dashboard(){
             </button>
           </div>
           {refreshMsg&&<div style={{fontSize:10,color:C.muted,textAlign:"right"}}>{refreshMsg}</div>}
+          {(pendingSeed||seedMsg)&&<div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8,marginTop:4}}>
+            {seedMsg?<span style={{fontSize:10,color:C.muted,fontFamily:"monospace"}}>{seedMsg}</span>:<>
+              <span style={{fontSize:10,color:C.muted}}>overwrite seed data with live?</span>
+              <button onClick={handleSaveSeed} style={{fontSize:10,fontFamily:"monospace",background:"transparent",border:`1px solid ${C.accent}55`,color:C.accent,borderRadius:6,padding:"2px 10px",cursor:"pointer",letterSpacing:"0.06em"}}>save as seed</button>
+              <button onClick={()=>setPendingSeed(null)} style={{fontSize:10,fontFamily:"monospace",background:"transparent",border:`1px solid ${C.muted}44`,color:C.muted,borderRadius:6,padding:"2px 8px",cursor:"pointer"}}>dismiss</button>
+            </>}
+          </div>}
         </div>
       </div>
 
