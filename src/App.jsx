@@ -713,6 +713,10 @@ function PasswordGate({ onAuth }) {
 export default function App(){
   const [authed, setAuthed] = useState(!APP_PASSWORD || sessionStorage.getItem(SESSION_KEY) === "1");
   if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
+  return <Dashboard />;
+}
+
+function Dashboard(){
 
   const [items,setItems]=useState(SEED_ITEMS);
   const [loading,setLoading]=useState(false);
