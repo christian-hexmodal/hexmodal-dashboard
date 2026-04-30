@@ -1,5 +1,7 @@
 
 
+import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
+
 // ─── STATIC SEED DATA (all 185 items as of Apr 29 2026) ──────────────────────
 const SEED_ITEMS = [
   // ── Week 13 ──────────────────────────────────────────────────────────────
