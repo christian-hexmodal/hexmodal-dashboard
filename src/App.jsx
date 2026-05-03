@@ -1,8 +1,6 @@
 
 
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
 // ─── SEED DATA START ──────────────────────────────────────────────────────────
 const SEED_ITEMS = [
@@ -762,6 +760,7 @@ function Dashboard(){
   const handleExport = useCallback(async () => {
     setExporting(true);
     try {
+      const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       const W = pdf.internal.pageSize.getWidth();
       const H = pdf.internal.pageSize.getHeight();
