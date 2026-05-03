@@ -378,7 +378,8 @@ function PersonTable({rows}){
         {rows.map(({name,counts,total})=>{
           const ac=avatarColor(name);
           const initials=name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
-          const donePct=total>0?Math.round((counts.done||0)/total*100):0;
+          const totalDone=(counts.done||0)+(counts.late||0);
+          const donePct=total>0?Math.round(totalDone/total*100):0;
           return(
             <div key={name} style={{display:"grid",gridTemplateColumns:"28px 1fr 32px 32px 32px 32px 56px",gap:8,alignItems:"center",padding:"7px 12px",borderRadius:6,marginBottom:2,background:C.rowAlt}}>
               <div style={{width:28,height:28,borderRadius:"50%",background:ac+"22",border:`1.5px solid ${ac}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:ac,fontFamily:"monospace"}}>{initials}</div>
