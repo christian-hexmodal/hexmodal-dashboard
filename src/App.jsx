@@ -705,6 +705,147 @@ Give a single short paragraph (2-3 sentences max) with one specific, actionable 
   );
 }
 
+// ─── PERSON SPOTLIGHT ─────────────────────────────────────────────────────────
+function PersonSpotlight({ person, classified, allItems, selectedWeek, weeklyTrendData }) {
+  const C = useC();
+  const [advice, setAdvice] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const stuck = classified.filter(i => i.cls === "stuck");
+  const open = classified.filter(i => i.cls === "open");
+  const done = classified.filter(i => i.cls === "done" || i.cls === "late");
+  const carryoverOpen = open.filter(i => i.isCarryover);
+  const unplannedOpen = open.filter(i => i.name?.startsWith("[SPIKE]") && !i.isCarryover);
+  const newOpen = open.filter(i => !i.isCarryover && !i.name?.startsWith("[SPIKE]"));
+
+  // Priority ordering: stuck > carryover open > unplanned open > new open
+  const focus = [...stuck, ...carryoverOpen, ...unplannedOpen, ...newOpen].slice(0, 6);
+
+  // Week-over-week delta (their done count this week vs last week)
+  const lastWeek = selectedWeek - 1;
+  const lastWeekItems = getItemsActiveInWeek(allItems, lastWeek)
+    .filter(i => (i.lead||"").split(",").map(l=>l.trim()).includes(person));
+  const lastWeekDone = lastWeekItems.filter(i => i.weekDone === lastWeek).length;
+  const thisWeekDone = classified.filter(i => i.weekDone === selectedWeek).length;
+  const delta = thisWeekDone - lastWeekDone;
+
+  // Initials avatar
+  const initials = person.split(" ").map(s=>s[0]).slice(0,2).join("").toUpperCase();
+  const avatarHue = (person.charCodeAt(0) * 37) % 360;
+
+  const fetchAdvice = async () => {
+    setLoading(true); setAdvice(null);
+    try {
+      const stuckList = stuck.map(i=>i.name).join(", ") || "none";
+      const carryList = carryoverOpen.map(i=>i.name).slice(0,5).join(", ") || "none";
+      const wins = done.map(i=>i.name).slice(0,5).join(", ") || "none";
+      const prompt = `You are a personal performance coach for ${person} at a hardware product team. Their week ${selectedWeek} status:
+- Total assigned: ${classified.length}
+- Done this week: ${thisWeekDone} (${delta>=0?"+":""}${delta} vs last week)
+- Stuck: ${stuck.length} (${stuckList})
+- Carryover still open: ${carryoverOpen.length} (${carryList})
+- Recent wins: ${wins}
+
+Give them 2-3 sentences of direct, encouraging, actionable advice for what to focus on next. Use their first name. Be specific about which task to tackle first and why. Be warm but practical.`;
+
+      const resp = await fetch("/api/claude", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 200, messages:[{role:"user",content:prompt}] }),
+      });
+      const data = await resp.json();
+      setAdvice(data.content?.find(b=>b.type==="text")?.text || "Could not generate advice.");
+    } catch (e) { setAdvice("Failed to generate: " + e.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:10,padding:16,marginBottom:12}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16,paddingBottom:14,borderBottom:`1px solid ${C.border}`}}>
+        <div style={{width:48,height:48,borderRadius:"50%",background:`hsl(${avatarHue},65%,55%)`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:16,fontFamily:"monospace",letterSpacing:"0.04em"}}>{initials}</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:18,fontWeight:700,color:C.text,letterSpacing:"0.02em"}}>{person}</div>
+          <div style={{fontSize:10,color:C.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginTop:2}}>Personal spotlight · Week {selectedWeek}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:10,color:C.muted,letterSpacing:"0.08em",textTransform:"uppercase"}}>vs last week</div>
+          <div style={{fontSize:20,fontWeight:700,color:delta>=0?C.done:C.late,fontFamily:"monospace"}}>{delta>=0?"↑":"↓"} {Math.abs(delta)}</div>
+        </div>
+      </div>
+
+      {/* Quick stats row */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>
+        <div style={{textAlign:"center",padding:"10px 6px",background:C.done+"10",borderRadius:6,border:`1px solid ${C.done}33`}}>
+          <div style={{fontSize:24,fontWeight:800,color:C.done,fontFamily:"monospace"}}>{done.length}</div>
+          <div style={{fontSize:9,color:C.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:2}}>Wins</div>
+        </div>
+        <div style={{textAlign:"center",padding:"10px 6px",background:C.open+"10",borderRadius:6,border:`1px solid ${C.open}33`}}>
+          <div style={{fontSize:24,fontWeight:800,color:C.open,fontFamily:"monospace"}}>{open.length}</div>
+          <div style={{fontSize:9,color:C.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:2}}>In Progress</div>
+        </div>
+        <div style={{textAlign:"center",padding:"10px 6px",background:C.late+"10",borderRadius:6,border:`1px solid ${C.late}33`}}>
+          <div style={{fontSize:24,fontWeight:800,color:C.late,fontFamily:"monospace"}}>{carryoverOpen.length}</div>
+          <div style={{fontSize:9,color:C.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:2}}>Carryover</div>
+        </div>
+        <div style={{textAlign:"center",padding:"10px 6px",background:C.stuck+"10",borderRadius:6,border:`1px solid ${C.stuck}33`}}>
+          <div style={{fontSize:24,fontWeight:800,color:C.stuck,fontFamily:"monospace"}}>{stuck.length}</div>
+          <div style={{fontSize:9,color:C.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:2}}>Stuck</div>
+        </div>
+      </div>
+
+      {/* Focus list */}
+      {focus.length > 0 && (
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,color:C.muted,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>🎯 Focus next — in priority order</div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            {focus.map((item,i) => {
+              const tag = item.cls==="stuck" ? {label:"STUCK",color:C.stuck} :
+                          item.isCarryover ? {label:"CARRY",color:C.late} :
+                          item.name?.startsWith("[SPIKE]") ? {label:"SPIKE",color:"#a855f7"} :
+                          {label:"NEW",color:C.carryover};
+              return (
+                <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:C.rowAlt,borderRadius:6,borderLeft:`3px solid ${tag.color}`}}>
+                  <div style={{fontSize:11,fontFamily:"monospace",color:C.muted,minWidth:18}}>{i+1}</div>
+                  <div style={{flex:1,fontSize:12,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>
+                  <div style={{fontSize:9,fontWeight:600,letterSpacing:"0.06em",color:tag.color,padding:"2px 8px",borderRadius:10,background:tag.color+"15",border:`1px solid ${tag.color}33`,fontFamily:"monospace"}}>{tag.label}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Wins */}
+      {done.length > 0 && (
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,color:C.muted,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>✓ Recent wins ({done.length})</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {done.slice(0,8).map(item => (
+              <div key={item.id} style={{fontSize:11,padding:"4px 10px",background:C.done+"10",border:`1px solid ${C.done}33`,borderRadius:14,color:C.text,maxWidth:280,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {item.name}
+              </div>
+            ))}
+            {done.length > 8 && <div style={{fontSize:10,color:C.muted,padding:"4px 10px",fontStyle:"italic"}}>+{done.length-8} more</div>}
+          </div>
+        </div>
+      )}
+
+      {/* AI advice */}
+      <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+          <div style={{fontSize:10,color:C.muted,letterSpacing:"0.1em",textTransform:"uppercase"}}>✦ Personal advice</div>
+          <button onClick={fetchAdvice} disabled={loading} style={{fontSize:10,fontFamily:"monospace",background:"transparent",border:`1px solid ${C.accent}44`,color:C.accent,borderRadius:6,padding:"3px 10px",cursor:loading?"not-allowed":"pointer",textTransform:"uppercase",letterSpacing:"0.06em"}}>
+            {loading ? "thinking..." : advice ? "↻ refresh" : "get advice ✦"}
+          </button>
+        </div>
+        {advice && <div style={{fontSize:12,color:C.text,lineHeight:1.7,background:C.accent+"0d",borderRadius:6,padding:"10px 12px",borderLeft:`3px solid ${C.accent}`}}>{advice}</div>}
+        {!advice && !loading && <div style={{fontSize:11,color:C.muted,fontStyle:"italic"}}>Click for AI-powered advice on what to focus on next.</div>}
+      </div>
+    </div>
+  );
+}
+
 // ─── PERSON FILTER BAR ────────────────────────────────────────────────────────
 function PersonFilterBar({people, selected, onSelect}) {
   const C = useC();
@@ -1069,6 +1210,9 @@ function Dashboard(){
 
       {/* PERSON FILTER */}
       <PersonFilterBar people={allPeople} selected={selectedPerson} onSelect={setSelectedPerson}/>
+
+      {/* PERSON SPOTLIGHT — shown when a teammate is selected */}
+      {selectedPerson && <PersonSpotlight person={selectedPerson} classified={classified} allItems={items} selectedWeek={selectedWeek}/>}
 
       {/* TREND + TEAM */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
