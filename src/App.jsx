@@ -547,8 +547,14 @@ function WeekScoreCard({classified, carryoverCount, weekItems, selectedWeek, all
   const late = classified.filter(i => i.cls === "late").length;
   const stuck = classified.filter(i => i.cls === "stuck").length;
   const open = classified.filter(i => i.cls === "open").length;
+  // Completion lens — items whose work actually finished THIS week
+  const doneOnTimeThisWeek = classified.filter(i => i.weekDone === selectedWeek && i.weekCreated === selectedWeek).length;
+  const doneFromPastThisWeek = classified.filter(i => i.weekDone === selectedWeek && i.weekCreated < selectedWeek).length;
+  const totalDoneThisWeek = doneOnTimeThisWeek + doneFromPastThisWeek;
   const totalCompleted = done + late;
-  const onTimePct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const onTimePct = total > 0 ? Math.round((doneOnTimeThisWeek / total) * 100) : 0;
+  const fromPastPct = total > 0 ? Math.round((doneFromPastThisWeek / total) * 100) : 0;
+  const totalDonePct = total > 0 ? Math.round((totalDoneThisWeek / total) * 100) : 0;
   const completedPct = total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
   const carryoverPct = total > 0 ? Math.round((carryoverCount / total) * 100) : 0;
 
@@ -609,9 +615,9 @@ Give a single short paragraph (2-3 sentences max) with one specific, actionable 
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
         <div>
-          <ScoreBar label="Done on time" pct={onTimePct} color={C.done} sub={`${done}/${total}`}/>
-          <ScoreBar label="Total completed" pct={completedPct} color={C.late} sub={`${totalCompleted}/${total}`}/>
-          <ScoreBar label="Carryover load" pct={carryoverPct} color={C.carryover} sub={`${carryoverCount} tasks`}/>
+          <ScoreBar label="Done on time" pct={onTimePct} color={C.done} sub={`${doneOnTimeThisWeek}/${total}`}/>
+          <ScoreBar label="Done from past weeks" pct={fromPastPct} color={C.late} sub={`${doneFromPastThisWeek}/${total}`}/>
+          <ScoreBar label="Total done this week" pct={totalDonePct} color={C.carryover} sub={`${totalDoneThisWeek}/${total}`}/>
         </div>
         <div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
@@ -801,9 +807,12 @@ function Dashboard(){
     const late = classified.filter(i=>i.cls==="late").length;
     const stuck = classified.filter(i=>i.cls==="stuck").length;
     const open = classified.filter(i=>i.cls==="open").length;
-    const onTimePct = total > 0 ? Math.round((done/total)*100) : 0;
-    const completedPct = total > 0 ? Math.round(((done+late)/total)*100) : 0;
-    const carryoverPct = total > 0 ? Math.round((carryoverCount/total)*100) : 0;
+    const doneOnTimeThisWeek = classified.filter(i=>i.weekDone===selectedWeek && i.weekCreated===selectedWeek).length;
+    const doneFromPastThisWeek = classified.filter(i=>i.weekDone===selectedWeek && i.weekCreated<selectedWeek).length;
+    const totalDoneThisWeek = doneOnTimeThisWeek + doneFromPastThisWeek;
+    const onTimePct = total > 0 ? Math.round((doneOnTimeThisWeek/total)*100) : 0;
+    const fromPastPct = total > 0 ? Math.round((doneFromPastThisWeek/total)*100) : 0;
+    const totalDonePct = total > 0 ? Math.round((totalDoneThisWeek/total)*100) : 0;
     const clsLabel = {done:"Done", late:"Done Late", open:"Open", stuck:"Stuck"};
     const clsColor = {done:"#1a9e5f", late:"#7c3aed", open:"#4b5563", stuck:"#c0392b"};
     const kpis = [
@@ -846,9 +855,9 @@ function Dashboard(){
     </div>
     <h2>Weekly Score</h2>
     ${[
-      {label:"Done on time", val:`${done}/${total}`, pct:onTimePct, color:"#1a9e5f"},
-      {label:"Total completed", val:`${done+late}/${total}`, pct:completedPct, color:"#7c3aed"},
-      {label:"Carryover load", val:`${carryoverCount} tasks`, pct:carryoverPct, color:"#2563eb"},
+      {label:"Done on time", val:`${doneOnTimeThisWeek}/${total}`, pct:onTimePct, color:"#1a9e5f"},
+      {label:"Done from past weeks", val:`${doneFromPastThisWeek}/${total}`, pct:fromPastPct, color:"#7c3aed"},
+      {label:"Total done this week", val:`${totalDoneThisWeek}/${total}`, pct:totalDonePct, color:"#2563eb"},
     ].map(b=>`<div class="bar-row"><div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div><div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div></div>`).join("")}
     <h2>By Person</h2>
     <table>
