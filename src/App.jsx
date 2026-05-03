@@ -269,15 +269,15 @@ async function fetchLiveItems() {
 const THEMES = {
   dark: {
     bg:"#07090f", panel:"#0d1117", border:"#161d2b",
-    done:"#3dd68c", open:"#6b7280", late:"#a78bfa", stuck:"#e05c5c", carryover:"#60a5fa",
+    done:"#34d399", open:"#94a3b8", late:"#fbbf24", stuck:"#f87171", carryover:"#60a5fa", totalDone:"#2dd4bf",
     accent:"#60a5fa", text:"#dde1ec", muted:"#4e5a73", dim:"#1e2840",
     rowAlt:"#090d14", rowBase:"transparent",
     kpiActive:"#0d1117", kpiNew:"#0d1117",
   },
   light: {
     bg:"#f4f6fa", panel:"#ffffff", border:"#dde2ee",
-    done:"#1a9e5f", open:"#4b5563", late:"#7c3aed", stuck:"#c0392b", carryover:"#2563eb",
-    accent:"#2563eb", text:"#1a2035", muted:"#7a88a8", dim:"#e8ecf5",
+    done:"#10b981", open:"#64748b", late:"#f59e0b", stuck:"#ef4444", carryover:"#3b82f6", totalDone:"#0d9488",
+    accent:"#3b82f6", text:"#1a2035", muted:"#7a88a8", dim:"#e8ecf5",
     rowAlt:"#f8f9fc", rowBase:"transparent",
     kpiActive:"#ffffff", kpiNew:"#ffffff",
   },
@@ -621,7 +621,7 @@ Give a single short paragraph (2-3 sentences max) with one specific, actionable 
         <div>
           <ScoreBar label="Done on time" pct={onTimePct} color={C.done} sub={`${doneOnTimeThisWeek}/${total}`}/>
           <ScoreBar label="Done from past weeks" pct={fromPastPct} color={C.late} sub={`${doneFromPastThisWeek}/${total}`}/>
-          <ScoreBar label="Total done this week" pct={totalDonePct} color="#0d9488" sub={`${totalDoneThisWeek}/${total}`}/>
+          <ScoreBar label="Total done this week" pct={totalDonePct} color={C.totalDone} sub={`${totalDoneThisWeek}/${total}`}/>
           <ScoreBar label="Carryover load" pct={carryoverPct} color={C.carryover} sub={`${carryoverCount}/${total}`}/>
         </div>
         <div>
@@ -991,13 +991,13 @@ function Dashboard(){
 
       {/* KPI ROW */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,marginBottom:16}}>
-        <KPI label="Assigned" value={filteredWeekItems.length} color="#64748b"/>
-        <KPI label="New Items" value={newThisWeek} sub={`${carryoverCount} carry`} color="#3b82f6"/>
-        <KPI label="Done on Time" value={doneOnTimeThisWeek} color="#10b981"/>
-        <KPI label="Done Late" value={doneLateThisWeek} color="#f59e0b"/>
-        <KPI label="Total Done this Week" value={totalDoneThisWeek} color="#0d9488"/>
-        <KPI label="Still Open" value={counts.open} color="#94a3b8"/>
-        <KPI label="Stuck" value={counts.stuck} color="#ef4444"/>
+        <KPI label="Assigned" value={filteredWeekItems.length} color={C.muted}/>
+        <KPI label="New Items" value={newThisWeek} sub={`${carryoverCount} carry`} color={C.carryover}/>
+        <KPI label="Done on Time" value={doneOnTimeThisWeek} color={C.done}/>
+        <KPI label="Done Late" value={doneLateThisWeek} color={C.late}/>
+        <KPI label="Total Done this Week" value={totalDoneThisWeek} color={C.totalDone}/>
+        <KPI label="Still Open" value={counts.open} color={C.open}/>
+        <KPI label="Stuck" value={counts.stuck} color={C.stuck}/>
       </div>
 
       {/* SCORE CARD */}
