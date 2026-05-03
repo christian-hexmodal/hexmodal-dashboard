@@ -374,7 +374,7 @@ function PersonTable({rows}){
         ))}
         <div style={{fontSize:9,color:C.muted}}>Done%</div>
       </div>
-      <div style={{maxHeight:220,overflowY:"auto"}}>
+      <div>
         {rows.map(({name,counts,total})=>{
           const ac=avatarColor(name);
           const initials=name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
