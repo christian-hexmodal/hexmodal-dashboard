@@ -824,13 +824,13 @@ function Dashboard(){
     const clsLabel = {done:"Done", late:"Done Late", open:"Open", stuck:"Stuck"};
     const clsColor = {done:"#1a9e5f", late:"#7c3aed", open:"#4b5563", stuck:"#c0392b"};
     const kpis = [
-      {label:"Assigned", value:total, color:"#2563eb"},
-      {label:"New Items", value:classified.filter(i=>i.weekCreated===selectedWeek).length, color:"#60a5fa"},
-      {label:"Done on Time", value:doneOnTimeThisWeek, color:"#1a9e5f"},
-      {label:"Done Late", value:doneFromPastThisWeek, color:"#7c3aed"},
-      {label:"Total Done this Week", value:totalDoneThisWeek, color:"#1a9e5f"},
-      {label:"Still Open", value:open, color:"#4b5563"},
-      {label:"Stuck", value:stuck, color:"#c0392b"},
+      {label:"Assigned", value:total, color:"#64748b"},
+      {label:"New Items", value:classified.filter(i=>i.weekCreated===selectedWeek).length, color:"#3b82f6"},
+      {label:"Done on Time", value:doneOnTimeThisWeek, color:"#10b981"},
+      {label:"Done Late", value:doneFromPastThisWeek, color:"#f59e0b"},
+      {label:"Total Done this Week", value:totalDoneThisWeek, color:"#0d9488"},
+      {label:"Still Open", value:open, color:"#94a3b8"},
+      {label:"Stuck", value:stuck, color:"#ef4444"},
     ];
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
     <title>Hexmodal Week ${selectedWeek}</title>
@@ -993,13 +993,13 @@ function Dashboard(){
 
       {/* KPI ROW */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,marginBottom:16}}>
-        <KPI label="Assigned" value={filteredWeekItems.length} color={C.accent}/>
-        <KPI label="New Items" value={newThisWeek} sub={`${carryoverCount} carry`} color={C.carryover}/>
-        <KPI label="Done on Time" value={doneOnTimeThisWeek} color={C.done}/>
-        <KPI label="Done Late" value={doneLateThisWeek} color={C.late}/>
-        <KPI label="Total Done this Week" value={totalDoneThisWeek} color={C.done}/>
-        <KPI label="Still Open" value={counts.open} color={C.open}/>
-        <KPI label="Stuck" value={counts.stuck} color={C.stuck}/>
+        <KPI label="Assigned" value={filteredWeekItems.length} color="#64748b"/>
+        <KPI label="New Items" value={newThisWeek} sub={`${carryoverCount} carry`} color="#3b82f6"/>
+        <KPI label="Done on Time" value={doneOnTimeThisWeek} color="#10b981"/>
+        <KPI label="Done Late" value={doneLateThisWeek} color="#f59e0b"/>
+        <KPI label="Total Done this Week" value={totalDoneThisWeek} color="#0d9488"/>
+        <KPI label="Still Open" value={counts.open} color="#94a3b8"/>
+        <KPI label="Stuck" value={counts.stuck} color="#ef4444"/>
       </div>
 
       {/* SCORE CARD */}
