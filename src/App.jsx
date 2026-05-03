@@ -663,7 +663,7 @@ Give a single short paragraph (2-3 sentences max) with one specific, actionable 
         <div>
           <ScoreBar label="Done on time" pct={onTimePct} color={C.done} sub={`${doneOnTimeThisWeek}/${total}`}/>
           <ScoreBar label="Done from past weeks" pct={fromPastPct} color={C.late} sub={`${doneFromPastThisWeek}/${total}`}/>
-          <ScoreBar label="Total done this week" pct={totalDonePct} color={C.totalDone} sub={`${totalDoneThisWeek}/${total}`}/>
+          <ScoreBar label="Done this week" pct={totalDonePct} color={C.totalDone} sub={`${totalDoneThisWeek}/${total}`}/>
           <ScoreBar label="Carryover load" pct={carryoverPct} color={C.carryover} sub={`${carryoverCount}/${total}`}/>
         </div>
         <div>
@@ -870,7 +870,7 @@ function Dashboard(){
       {label:"New Items", value:classified.filter(i=>i.weekCreated===selectedWeek).length, color:"#3b82f6"},
       {label:"Done on Time", value:doneOnTimeThisWeek, color:"#10b981"},
       {label:"Done Late", value:doneFromPastThisWeek, color:"#f59e0b"},
-      {label:"Total Done this Week", value:totalDoneThisWeek, color:"#0d9488"},
+      {label:"Done this Week", value:totalDoneThisWeek, color:"#0d9488"},
       {label:"Still Open", value:open, color:"#94a3b8"},
       {label:"Stuck", value:stuck, color:"#ef4444"},
     ];
@@ -909,7 +909,7 @@ function Dashboard(){
       return [
         {label:"Done on time", val:`${doneOnTimeThisWeek}/${total}`, pct:onTimePct, color:"#10b981"},
         {label:"Done from past weeks", val:`${doneFromPastThisWeek}/${total}`, pct:fromPastPct, color:"#f59e0b"},
-        {label:"Total done this week", val:`${totalDoneThisWeek}/${total}`, pct:totalDonePct, color:"#0d9488"},
+        {label:"Done this week", val:`${totalDoneThisWeek}/${total}`, pct:totalDonePct, color:"#0d9488"},
         {label:"Carryover load", val:`${carryoverCount}/${total}`, pct:carryoverPct, color:"#3b82f6"},
       ].map(b=>`<div class="bar-row"><div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div><div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div></div>`).join("");
     })()}
@@ -1037,7 +1037,7 @@ function Dashboard(){
         <KPI label="New Items" value={newThisWeek} sub={`${carryoverCount} carry`} color={C.carryover}/>
         <KPI label="Done on Time" value={doneOnTimeThisWeek} color={C.done}/>
         <KPI label="Done Late" value={doneLateThisWeek} color={C.late}/>
-        <KPI label="Total Done this Week" value={totalDoneThisWeek} color={C.totalDone}/>
+        <KPI label="Done this Week" value={totalDoneThisWeek} color={C.totalDone}/>
         <KPI label="Still Open" value={counts.open} color={C.open}/>
         <KPI label="Stuck" value={counts.stuck} color={C.stuck}/>
       </div>
