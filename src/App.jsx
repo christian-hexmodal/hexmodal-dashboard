@@ -621,8 +621,8 @@ Give a single short paragraph (2-3 sentences max) with one specific, actionable 
         <div>
           <ScoreBar label="Done on time" pct={onTimePct} color={C.done} sub={`${doneOnTimeThisWeek}/${total}`}/>
           <ScoreBar label="Done from past weeks" pct={fromPastPct} color={C.late} sub={`${doneFromPastThisWeek}/${total}`}/>
-          <ScoreBar label="Total done this week" pct={totalDonePct} color={C.carryover} sub={`${totalDoneThisWeek}/${total}`}/>
-          <ScoreBar label="Total items completed" pct={allTimeDonePct} color={C.done} sub={`${allTimeDone}/${allTimeTotal} all-time`}/>
+          <ScoreBar label="Total done this week" pct={totalDonePct} color="#0d9488" sub={`${totalDoneThisWeek}/${total}`}/>
+          <ScoreBar label="Carryover load" pct={carryoverPct} color={C.carryover} sub={`${carryoverCount}/${total}`}/>
         </div>
         <div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
@@ -863,14 +863,12 @@ function Dashboard(){
     </div>
     <h2>Weekly Score</h2>
     ${(() => {
-      const allTimeDone = items.filter(i=>(i.status||"").toLowerCase()==="done" && i.weekDone!==null).length;
-      const allTimeTotal = items.length;
-      const allTimePct = allTimeTotal > 0 ? Math.round((allTimeDone/allTimeTotal)*100) : 0;
+      const carryoverPct = total > 0 ? Math.round((carryoverCount/total)*100) : 0;
       return [
-        {label:"Done on time", val:`${doneOnTimeThisWeek}/${total}`, pct:onTimePct, color:"#1a9e5f"},
-        {label:"Done from past weeks", val:`${doneFromPastThisWeek}/${total}`, pct:fromPastPct, color:"#7c3aed"},
-        {label:"Total done this week", val:`${totalDoneThisWeek}/${total}`, pct:totalDonePct, color:"#2563eb"},
-        {label:"Total items completed (all-time)", val:`${allTimeDone}/${allTimeTotal}`, pct:allTimePct, color:"#1a9e5f"},
+        {label:"Done on time", val:`${doneOnTimeThisWeek}/${total}`, pct:onTimePct, color:"#10b981"},
+        {label:"Done from past weeks", val:`${doneFromPastThisWeek}/${total}`, pct:fromPastPct, color:"#f59e0b"},
+        {label:"Total done this week", val:`${totalDoneThisWeek}/${total}`, pct:totalDonePct, color:"#0d9488"},
+        {label:"Carryover load", val:`${carryoverCount}/${total}`, pct:carryoverPct, color:"#3b82f6"},
       ].map(b=>`<div class="bar-row"><div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div><div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div></div>`).join("");
     })()}
     <h2>By Person</h2>
