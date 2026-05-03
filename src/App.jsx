@@ -489,22 +489,23 @@ function ItemsList({items,week}){
 
 
 // ─── LINE CHART ───────────────────────────────────────────────────────────────
-function LineChart({weeklyData, weeklyCarryover, weeklyCeiling, weeks, personFilter, allItems}) {
+function LineChart({weeklyData, weeklyCarryover, weeklyCeiling, weeklyUnplanned, weeks, personFilter, allItems}) {
   const C = useC();
   // Recompute series data when a person filter is active
   const filteredData = useMemo(()=>{
-    if(!personFilter||!allItems) return {wd:weeklyData, wc:weeklyCarryover, wg:weeklyCeiling};
-    const wd={}, wc={}, wg={};
+    if(!personFilter||!allItems) return {wd:weeklyData, wc:weeklyCarryover, wg:weeklyCeiling, wu:weeklyUnplanned};
+    const wd={}, wc={}, wg={}, wu={};
     weeks.forEach(w=>{
       const wi=getItemsActiveInWeek(allItems,w).filter(i=>(i.lead||"").split(",").map(l=>l.trim()).includes(personFilter));
       wd[w]={done:0,open:0,late:0,stuck:0,active:wi.length};
       wi.forEach(i=>{const c=classifyItem(i,w);wd[w][c]=(wd[w][c]||0)+1;});
       wc[w]=wi.filter(i=>i.weekCreated<w).length;
+      wu[w]=wi.filter(i=>i.name?.startsWith("[SPIKE]")).length;
       wg[w]=wi.length > 0 ? 6 : 0; // 1 person ceiling = 6
     });
-    return {wd, wc, wg};
-  },[personFilter,allItems,weeklyData,weeklyCarryover,weeklyCeiling,weeks]);
-  const {wd, wc, wg} = filteredData;
+    return {wd, wc, wg, wu};
+  },[personFilter,allItems,weeklyData,weeklyCarryover,weeklyCeiling,weeklyUnplanned,weeks]);
+  const {wd, wc, wg, wu} = filteredData;
   const W = 560, H = 160, PAD = {top:16, right:16, bottom:24, left:32};
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
@@ -513,6 +514,7 @@ function LineChart({weeklyData, weeklyCarryover, weeklyCeiling, weeks, personFil
     {key:"active",   label:"Active",   color:C.accent,   values: weeks.map(w => (wd[w]||{active:0}).active  || Object.values(wd[w]||{}).reduce((a,b)=>a+b,0))},
     {key:"carryover",label:"Carryover",color:"#94a3b8",  values: weeks.map(w => wc[w]||0)},
     {key:"done",     label:"Done",     color:C.done,     values: weeks.map(w => (wd[w]||{}).done||0)},
+    {key:"unplanned",label:"Unplanned",color:"#a855f7",  values: weeks.map(w => (wu||{})[w]||0)},
     {key:"ceiling",  label:"Goal",     color:"#f5c842",  values: weeks.map(w => wg[w]||0), dashed:true},
   ];
 
@@ -594,11 +596,16 @@ function WeekScoreCard({classified, carryoverCount, weekItems, selectedWeek, all
   const doneFromPastThisWeek = classified.filter(i => i.weekDone === selectedWeek && i.weekCreated < selectedWeek).length;
   const totalDoneThisWeek = doneOnTimeThisWeek + doneFromPastThisWeek;
   const totalCompleted = done + late;
-  const onTimePct = total > 0 ? Math.round((doneOnTimeThisWeek / total) * 100) : 0;
-  const fromPastPct = total > 0 ? Math.round((doneFromPastThisWeek / total) * 100) : 0;
+  const newThisWeek = classified.filter(i => i.weekCreated === selectedWeek).length;
+  // Done on time as % of newly-assigned items this week
+  const onTimePct = newThisWeek > 0 ? Math.round((doneOnTimeThisWeek / newThisWeek) * 100) : 0;
+  // Done from past weeks as % of carryover (how much carryover got cleared)
+  const fromPastPct = carryoverCount > 0 ? Math.round((doneFromPastThisWeek / carryoverCount) * 100) : 0;
   const totalDonePct = total > 0 ? Math.round((totalDoneThisWeek / total) * 100) : 0;
   const completedPct = total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
   const carryoverPct = total > 0 ? Math.round((carryoverCount / total) * 100) : 0;
+  const unplannedCount = weekItems.filter(i => i.name?.startsWith("[SPIKE]")).length;
+  const unplannedPct = total > 0 ? Math.round((unplannedCount / total) * 100) : 0;
   // Cumulative — feel-good metric: how much have we shipped overall
   const allTimeDone = allItems.filter(i => (i.status||"").toLowerCase() === "done" && i.weekDone !== null).length;
   const allTimeTotal = allItems.length;
@@ -661,10 +668,11 @@ Give a single short paragraph (2-3 sentences max) with one specific, actionable 
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
         <div>
-          <ScoreBar label="Done on time" pct={onTimePct} color={C.done} sub={`${doneOnTimeThisWeek}/${total}`}/>
-          <ScoreBar label="Done from past weeks" pct={fromPastPct} color={C.late} sub={`${doneFromPastThisWeek}/${total}`}/>
+          <ScoreBar label="Done on time" pct={onTimePct} color={C.done} sub={`${doneOnTimeThisWeek}/${newThisWeek} new`}/>
+          <ScoreBar label="Done from past weeks" pct={fromPastPct} color={C.late} sub={`${doneFromPastThisWeek}/${carryoverCount} carry`}/>
           <ScoreBar label="Done this week" pct={totalDonePct} color={C.totalDone} sub={`${totalDoneThisWeek}/${total}`}/>
           <ScoreBar label="Carryover load" pct={carryoverPct} color={C.carryover} sub={`${carryoverCount}/${total}`}/>
+          <ScoreBar label="Unplanned (spikes)" pct={unplannedPct} color="#a855f7" sub={`${unplannedCount}/${total}`}/>
         </div>
         <div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
@@ -860,14 +868,16 @@ function Dashboard(){
     const doneOnTimeThisWeek = classified.filter(i=>i.weekDone===selectedWeek && i.weekCreated===selectedWeek).length;
     const doneFromPastThisWeek = classified.filter(i=>i.weekDone===selectedWeek && i.weekCreated<selectedWeek).length;
     const totalDoneThisWeek = doneOnTimeThisWeek + doneFromPastThisWeek;
-    const onTimePct = total > 0 ? Math.round((doneOnTimeThisWeek/total)*100) : 0;
-    const fromPastPct = total > 0 ? Math.round((doneFromPastThisWeek/total)*100) : 0;
+    const newThisWeek = classified.filter(i=>i.weekCreated===selectedWeek).length;
+    const onTimePct = newThisWeek > 0 ? Math.round((doneOnTimeThisWeek/newThisWeek)*100) : 0;
+    const fromPastPct = carryoverCount > 0 ? Math.round((doneFromPastThisWeek/carryoverCount)*100) : 0;
     const totalDonePct = total > 0 ? Math.round((totalDoneThisWeek/total)*100) : 0;
     const clsLabel = {done:"Done", late:"Done Late", open:"Open", stuck:"Stuck"};
     const clsColor = {done:"#1a9e5f", late:"#7c3aed", open:"#4b5563", stuck:"#c0392b"};
     const kpis = [
       {label:"Assigned", value:total, color:"#64748b"},
-      {label:"New Items", value:classified.filter(i=>i.weekCreated===selectedWeek).length, color:"#3b82f6"},
+      {label:"New Items", value:newThisWeek, color:"#3b82f6"},
+      {label:"Unplanned", value:classified.filter(i=>i.name?.startsWith("[SPIKE]")).length, color:"#a855f7"},
       {label:"Done on Time", value:doneOnTimeThisWeek, color:"#10b981"},
       {label:"Done Late", value:doneFromPastThisWeek, color:"#f59e0b"},
       {label:"Done this Week", value:totalDoneThisWeek, color:"#0d9488"},
@@ -882,7 +892,7 @@ function Dashboard(){
       h1{font-size:20px;font-weight:800;letter-spacing:.04em;}
       h2{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin:20px 0 8px;}
       .sub{font-size:10px;color:#64748b;margin-top:2px;}
-      .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px;}
+      .kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:4px;}
       .kpi{border-radius:6px;padding:10px 6px 8px;text-align:center;border:1px solid;}
       .kpi-val{font-size:22px;font-weight:800;line-height:1;}
       .kpi-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.06em;margin-top:4px;color:#64748b;}
@@ -906,11 +916,14 @@ function Dashboard(){
     <h2>Weekly Score</h2>
     ${(() => {
       const carryoverPct = total > 0 ? Math.round((carryoverCount/total)*100) : 0;
+      const unplannedCount = classified.filter(i=>i.name?.startsWith("[SPIKE]")).length;
+      const unplannedPct = total > 0 ? Math.round((unplannedCount/total)*100) : 0;
       return [
-        {label:"Done on time", val:`${doneOnTimeThisWeek}/${total}`, pct:onTimePct, color:"#10b981"},
-        {label:"Done from past weeks", val:`${doneFromPastThisWeek}/${total}`, pct:fromPastPct, color:"#f59e0b"},
+        {label:"Done on time", val:`${doneOnTimeThisWeek}/${newThisWeek} new`, pct:onTimePct, color:"#10b981"},
+        {label:"Done from past weeks", val:`${doneFromPastThisWeek}/${carryoverCount} carry`, pct:fromPastPct, color:"#f59e0b"},
         {label:"Done this week", val:`${totalDoneThisWeek}/${total}`, pct:totalDonePct, color:"#0d9488"},
         {label:"Carryover load", val:`${carryoverCount}/${total}`, pct:carryoverPct, color:"#3b82f6"},
+        {label:"Unplanned (spikes)", val:`${unplannedCount}/${total}`, pct:unplannedPct, color:"#a855f7"},
       ].map(b=>`<div class="bar-row"><div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div><div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div></div>`).join("");
     })()}
     <h2>By Person</h2>
@@ -944,6 +957,14 @@ function Dashboard(){
     const d={};
     displayWeeks.forEach(w=>{
       d[w]=getItemsActiveInWeek(items,w).filter(i=>i.weekCreated<w).length;
+    });
+    return d;
+  },[items,displayWeeks]);
+
+  const weeklyUnplanned=useMemo(()=>{
+    const d={};
+    displayWeeks.forEach(w=>{
+      d[w]=getItemsActiveInWeek(items,w).filter(i=>i.name?.startsWith("[SPIKE]")).length;
     });
     return d;
   },[items,displayWeeks]);
@@ -1032,9 +1053,10 @@ function Dashboard(){
       </div>
 
       {/* KPI ROW */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:8,marginBottom:16}}>
         <KPI label="Assigned" value={filteredWeekItems.length} color={C.muted}/>
         <KPI label="New Items" value={newThisWeek} sub={`${carryoverCount} carry`} color={C.carryover}/>
+        <KPI label="Unplanned" value={unplannedCount} color="#a855f7"/>
         <KPI label="Done on Time" value={doneOnTimeThisWeek} color={C.done}/>
         <KPI label="Done Late" value={doneLateThisWeek} color={C.late}/>
         <KPI label="Done this Week" value={totalDoneThisWeek} color={C.totalDone}/>
@@ -1065,7 +1087,7 @@ function Dashboard(){
           </div>
           <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14}}>
             <div style={{fontSize:10,color:C.muted,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:10}}>Trend Lines</div>
-            <LineChart weeklyData={weeklyData} weeklyCarryover={weeklyCarryover} weeklyCeiling={weeklyCeiling} weeks={displayWeeks} personFilter={selectedPerson} allItems={items}/>
+            <LineChart weeklyData={weeklyData} weeklyCarryover={weeklyCarryover} weeklyCeiling={weeklyCeiling} weeklyUnplanned={weeklyUnplanned} weeks={displayWeeks} personFilter={selectedPerson} allItems={items}/>
           </div>
         </div>
 
