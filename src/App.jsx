@@ -760,18 +760,195 @@ function Dashboard(){
   },[pendingSeed]);
 
   const handleExport = useCallback(async () => {
-    if (!exportRef.current) return;
     setExporting(true);
     try {
-      const canvas = await html2canvas(exportRef.current, { scale: 2, useCORS: true, backgroundColor: C.bg });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const W = pdf.internal.pageSize.getWidth();
+      const H = pdf.internal.pageSize.getHeight();
+      const margin = 40;
+      const col = W - margin * 2;
+      let y = margin;
+
+      const newPage = () => { pdf.addPage(); y = margin; };
+      const checkY = (need = 20) => { if (y + need > H - margin) newPage(); };
+
+      // ── Palette
+      const hex = c => c.replace("#","");
+      const rgb = c => { const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16); return [r,g,b]; };
+
+      // ── Header
+      pdf.setFillColor(...rgb("#0d1117"));
+      pdf.rect(0, 0, W, 60, "F");
+      pdf.setTextColor(255,255,255);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(18);
+      pdf.text("HEXMODAL", margin, 36);
+      pdf.setFont("helvetica","normal");
+      pdf.setFontSize(10);
+      pdf.text(`Week ${selectedWeek} Report  ·  ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}`, margin, 50);
+      y = 80;
+
+      // ── KPI boxes
+      const total = classified.length;
+      const done = classified.filter(i=>i.cls==="done").length;
+      const late = classified.filter(i=>i.cls==="late").length;
+      const stuck = classified.filter(i=>i.cls==="stuck").length;
+      const open = classified.filter(i=>i.cls==="open").length;
+      const onTimePct = total > 0 ? Math.round((done/total)*100) : 0;
+      const completedPct = total > 0 ? Math.round(((done+late)/total)*100) : 0;
+      const kpis = [
+        {label:"Active", value:total, color:"#60a5fa"},
+        {label:"Done", value:done, color:"#3dd68c"},
+        {label:"Done Late", value:late, color:"#a78bfa"},
+        {label:"Open", value:open, color:"#6b7280"},
+        {label:"Stuck", value:stuck, color:"#e05c5c"},
+        {label:"Unplanned", value:unplannedCount, color:"#94a3b8"},
+        {label:"Carryover", value:carryoverCount, color:"#60a5fa"},
+      ];
+      const kw = (col - 6*6) / 7;
+      kpis.forEach((k,i) => {
+        const x = margin + i*(kw+6);
+        pdf.setFillColor(...rgb(k.color+"22".slice(0,2)));
+        pdf.setDrawColor(...rgb(k.color));
+        pdf.roundedRect(x, y, kw, 44, 4, 4, "FD");
+        pdf.setTextColor(...rgb(k.color));
+        pdf.setFont("helvetica","bold");
+        pdf.setFontSize(20);
+        pdf.text(String(k.value), x+kw/2, y+26, {align:"center"});
+        pdf.setFontSize(7);
+        pdf.setFont("helvetica","normal");
+        pdf.text(k.label.toUpperCase(), x+kw/2, y+38, {align:"center"});
+      });
+      y += 60;
+
+      // ── Score bars
+      pdf.setTextColor(30,30,30);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(11);
+      pdf.text("WEEKLY SCORE", margin, y); y += 14;
+      const bars = [
+        {label:`Done on time — ${done}/${total}`, pct:onTimePct, color:"#3dd68c"},
+        {label:`Total completed — ${done+late}/${total}`, pct:completedPct, color:"#a78bfa"},
+        {label:`Carryover load — ${carryoverCount} tasks`, pct:total>0?Math.round((carryoverCount/total)*100):0, color:"#60a5fa"},
+      ];
+      bars.forEach(b => {
+        pdf.setFont("helvetica","normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(60,60,60);
+        pdf.text(b.label, margin, y+9);
+        pdf.setFillColor(230,230,230);
+        pdf.roundedRect(margin, y+12, col, 8, 2, 2, "F");
+        pdf.setFillColor(...rgb(b.color));
+        pdf.roundedRect(margin, y+12, Math.max(col*(b.pct/100),2), 8, 2, 2, "F");
+        pdf.setTextColor(...rgb(b.color));
+        pdf.setFont("helvetica","bold");
+        pdf.setFontSize(8);
+        pdf.text(`${b.pct}%`, margin+col+4, y+19);
+        y += 26;
+      });
+      y += 8;
+
+      // ── Trend bar chart (last weeks)
+      checkY(80);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(11);
+      pdf.setTextColor(30,30,30);
+      pdf.text("WEEKLY TREND", margin, y); y += 14;
+      const weeks = displayWeeks;
+      const barW = Math.min(col/weeks.length - 4, 40);
+      const chartH = 50;
+      weeks.forEach((w,i) => {
+        const d = weeklyData[w]||{};
+        const total = d.active||1;
+        const donePct = (d.done||0)/total;
+        const latePct = (d.late||0)/total;
+        const x = margin + i*(col/weeks.length) + (col/weeks.length - barW)/2;
+        const isSelected = w === selectedWeek;
+        // done bar
+        pdf.setFillColor(...rgb(isSelected?"#3dd68c":"#3dd68c88"));
+        pdf.rect(x, y+chartH - chartH*donePct, barW*0.45, chartH*donePct, "F");
+        // late bar
+        pdf.setFillColor(...rgb(isSelected?"#a78bfa":"#a78bfa88"));
+        pdf.rect(x+barW*0.5, y+chartH - chartH*latePct, barW*0.45, chartH*latePct, "F");
+        // week label
+        pdf.setFontSize(6);
+        pdf.setTextColor(100,100,100);
+        pdf.setFont("helvetica", isSelected?"bold":"normal");
+        pdf.text(`W${w}`, x+barW/2, y+chartH+8, {align:"center"});
+        if(isSelected){ pdf.setDrawColor(...rgb("#60a5fa")); pdf.setLineWidth(0.5); pdf.rect(x-2,y-2,barW+4,chartH+4); }
+      });
+      y += chartH + 18;
+
+      // ── Per-person table
+      checkY(40);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(11);
+      pdf.setTextColor(30,30,30);
+      pdf.text("BY PERSON", margin, y); y += 12;
+      const pCols = [{h:"Name",w:130},{h:"Active",w:45},{h:"Done",w:45},{h:"Done Late",w:60},{h:"Open",w:45},{h:"Stuck",w:45}];
+      pdf.setFillColor(240,240,240);
+      pdf.rect(margin, y, col, 16, "F");
+      let px = margin+4;
+      pCols.forEach(c => {
+        pdf.setFont("helvetica","bold"); pdf.setFontSize(8); pdf.setTextColor(60,60,60);
+        pdf.text(c.h, px, y+11); px+=c.w;
+      });
+      y += 16;
+      personRows.forEach((row,ri) => {
+        checkY(14);
+        if(ri%2===0){ pdf.setFillColor(248,248,248); pdf.rect(margin,y,col,14,"F"); }
+        px = margin+4;
+        const vals = [row.name, row.total, row.counts.done||0, row.counts.late||0, row.counts.open||0, row.counts.stuck||0];
+        pCols.forEach((c,ci) => {
+          pdf.setFont("helvetica", ci===0?"normal":"normal");
+          pdf.setFontSize(8);
+          pdf.setTextColor(30,30,30);
+          const txt = String(vals[ci]);
+          pdf.text(ci===0 ? pdf.splitTextToSize(txt, c.w-4)[0] : txt, px, y+10);
+          px+=c.w;
+        });
+        y+=14;
+      });
+      y += 12;
+
+      // ── Full task list
+      checkY(40);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(11);
+      pdf.setTextColor(30,30,30);
+      pdf.text("ALL TASKS", margin, y); y += 12;
+      const tCols = [{h:"Task",w:220},{h:"Lead",w:90},{h:"Status",w:70},{h:"Created",w:55},{h:"Completed",w:55}];
+      pdf.setFillColor(240,240,240);
+      pdf.rect(margin, y, col, 16, "F");
+      px = margin+4;
+      tCols.forEach(c => {
+        pdf.setFont("helvetica","bold"); pdf.setFontSize(8); pdf.setTextColor(60,60,60);
+        pdf.text(c.h, px, y+11); px+=c.w;
+      });
+      y+=16;
+      const clsColor = {done:"#3dd68c", late:"#a78bfa", open:"#6b7280", stuck:"#e05c5c"};
+      classified.forEach((item,ri) => {
+        checkY(14);
+        if(ri%2===0){ pdf.setFillColor(248,248,248); pdf.rect(margin,y,col,14,"F"); }
+        px=margin+4;
+        const vals=[item.name, item.lead||"—", item.cls.replace("late","Done Late").replace("done","Done").replace("open","Open").replace("stuck","Stuck"), item.createdDate||"—", item.completedDate||"—"];
+        tCols.forEach((c,ci) => {
+          const color = ci===2 ? rgb(clsColor[item.cls]||"#888888") : [30,30,30];
+          pdf.setTextColor(...color);
+          pdf.setFont("helvetica","normal");
+          pdf.setFontSize(ci===0?7.5:8);
+          const txt = pdf.splitTextToSize(String(vals[ci]), c.w-4)[0];
+          pdf.text(txt, px, y+10);
+          px+=c.w;
+        });
+        y+=14;
+      });
+
       pdf.save(`hexmodal-week-${selectedWeek}.pdf`);
     } finally {
       setExporting(false);
     }
-  }, [selectedWeek, C.bg]);
+  }, [selectedWeek, classified, counts, carryoverCount, unplannedCount, personRows, weeklyData, displayWeeks]);
 
   const allWeeks=useMemo(()=>[...new Set(items.map(i=>i.weekCreated).filter(Boolean))].sort((a,b)=>a-b),[items]);
   const displayWeeks=allWeeks.slice(-MAX_WEEKS);
