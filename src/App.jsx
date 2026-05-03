@@ -223,8 +223,8 @@ function classifyItem(item, viewingWeek) {
   if (st === "stuck" || st === "move to next board") return "stuck";
   if (st === "done") {
     const wd = item.weekDone;
-    if (wd !== null && wd <= item.weekCreated + 1) return "done";  // same week OR 1 week later = Done
-    if (wd !== null && wd >= item.weekCreated + 2) return "late";  // 2+ weeks later = Late Done
+    if (wd !== null && wd === item.weekCreated) return "done";       // same week = Done
+    if (wd !== null && wd > item.weekCreated) return "late";         // 1+ weeks later = Done Late
     return "open";
   }
   return "open";
@@ -897,7 +897,7 @@ function Dashboard(){
         <KPI label="New" value={newThisWeek} sub={`${carryoverCount} carry`} color={C.carryover}/>
         <KPI label="Done" value={counts.done} color={C.done}/>
         <KPI label="Open" value={counts.open} color={C.open}/>
-        <KPI label="Late" value={counts.late} color={C.late}/>
+        <KPI label="Done Late" value={counts.late} color={C.late}/>
         <KPI label="Stuck" value={counts.stuck} color={C.stuck}/>
         <KPI label="Unplanned" value={unplannedCount} color={C.muted}/>
       </div>
