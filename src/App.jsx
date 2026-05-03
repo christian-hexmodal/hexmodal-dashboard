@@ -403,25 +403,67 @@ function ItemsList({items,week}){
   const C = useC();
   const STATUS = useStatus();
   const [filter,setFilter]=useState("all");
+  const [search,setSearch]=useState("");
+  const [leadFilter,setLeadFilter]=useState("");
+  const [sortBy,setSortBy]=useState("name");
+  const [sortDir,setSortDir]=useState("asc");
   const withClass=items.map(i=>({...i,cls:classifyItem(i,week),isCarryover:i.weekCreated<week}));
   const counts={};withClass.forEach(i=>{counts[i.cls]=(counts[i.cls]||0)+1;});
-  const filtered=filter==="all"?withClass:withClass.filter(i=>i.cls===filter);
+
+  let filtered = filter==="all" ? withClass : withClass.filter(i=>i.cls===filter);
+  if (search.trim()) filtered = filtered.filter(i => i.name?.toLowerCase().includes(search.trim().toLowerCase()));
+  if (leadFilter.trim()) filtered = filtered.filter(i => (i.lead||"").toLowerCase().includes(leadFilter.trim().toLowerCase()));
+
+  const sortVal = (item, key) => {
+    if(key==="name") return (item.name||"").toLowerCase();
+    if(key==="lead") return (item.lead||"").toLowerCase();
+    if(key==="cls")  return ({done:0,late:1,open:2,stuck:3})[item.cls] ?? 99;
+    if(key==="weekCreated") return item.weekCreated || 0;
+    if(key==="weekDone")    return item.weekDone || 9999;
+    return 0;
+  };
+  filtered = [...filtered].sort((a,b) => {
+    const av = sortVal(a,sortBy), bv = sortVal(b,sortBy);
+    if (av < bv) return sortDir==="asc" ? -1 : 1;
+    if (av > bv) return sortDir==="asc" ? 1 : -1;
+    return 0;
+  });
+
+  const toggleSort = key => {
+    if (sortBy === key) setSortDir(d => d==="asc" ? "desc" : "asc");
+    else { setSortBy(key); setSortDir("asc"); }
+  };
+  const SortIcon = ({col}) => sortBy===col ? <span style={{fontSize:8,marginLeft:3}}>{sortDir==="asc"?"▲":"▼"}</span> : null;
+  const headerStyle = {fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em",cursor:"pointer",userSelect:"none",display:"flex",alignItems:"center"};
 
   return(
     <div>
-      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
+      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
         <Pill label="All" value={withClass.length} color={C.accent} active={filter==="all"} onClick={()=>setFilter("all")}/>
         {Object.entries(STATUS).map(([k,s])=>(
           <Pill key={k} label={s.label} value={counts[k]||0} color={s.color} active={filter===k} onClick={()=>setFilter(k)}/>
         ))}
+        <input
+          placeholder="Search task..."
+          value={search}
+          onChange={e=>setSearch(e.target.value)}
+          style={{marginLeft:"auto",background:C.panel,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,padding:"4px 10px",fontFamily:"inherit",width:140,outline:"none"}}
+        />
+        <input
+          placeholder="Filter lead..."
+          value={leadFilter}
+          onChange={e=>setLeadFilter(e.target.value)}
+          style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11,padding:"4px 10px",fontFamily:"inherit",width:120,outline:"none"}}
+        />
       </div>
       <div style={{maxHeight:300,overflowY:"auto"}}>
         <div style={{display:"grid",gridTemplateColumns:"10px 1fr 100px 72px 36px 44px",gap:10,alignItems:"center",padding:"3px 10px 6px",borderBottom:`1px solid ${C.border}`,marginBottom:2,position:"sticky",top:0,background:C.panel,zIndex:1}}>
-          <div/><div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em"}}>Task</div>
-          <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em"}}>Lead</div>
-          <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em"}}>Status</div>
-          <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em",textAlign:"center"}}>In</div>
-          <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:"0.07em",textAlign:"center"}}>Done</div>
+          <div/>
+          <div style={headerStyle} onClick={()=>toggleSort("name")}>Task<SortIcon col="name"/></div>
+          <div style={headerStyle} onClick={()=>toggleSort("lead")}>Lead<SortIcon col="lead"/></div>
+          <div style={headerStyle} onClick={()=>toggleSort("cls")}>Status<SortIcon col="cls"/></div>
+          <div style={{...headerStyle,justifyContent:"center"}} onClick={()=>toggleSort("weekCreated")}>In<SortIcon col="weekCreated"/></div>
+          <div style={{...headerStyle,justifyContent:"center"}} onClick={()=>toggleSort("weekDone")}>Done<SortIcon col="weekDone"/></div>
         </div>
         {filtered.map((item,i)=>{
           const s=STATUS[item.cls];
