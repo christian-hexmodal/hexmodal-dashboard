@@ -786,8 +786,8 @@ Give them 2-3 sentences of direct, encouraging, actionable advice for what to fo
           <div style={{fontSize:9,color:C.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:2}}>In Progress</div>
         </div>
         <div style={{textAlign:"center",padding:"10px 6px",background:C.late+"10",borderRadius:6,border:`1px solid ${C.late}33`}}>
-          <div style={{fontSize:24,fontWeight:800,color:C.late,fontFamily:"monospace"}}>{carryoverOpen.length}</div>
-          <div style={{fontSize:9,color:C.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:2}}>Carryover</div>
+          <div style={{fontSize:24,fontWeight:800,color:C.late,fontFamily:"monospace"}}>{classified.filter(i=>i.cls==="late").length}</div>
+          <div style={{fontSize:9,color:C.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:2}}>Done Late</div>
         </div>
         <div style={{textAlign:"center",padding:"10px 6px",background:C.stuck+"10",borderRadius:6,border:`1px solid ${C.stuck}33`}}>
           <div style={{fontSize:24,fontWeight:800,color:C.stuck,fontFamily:"monospace"}}>{stuck.length}</div>
