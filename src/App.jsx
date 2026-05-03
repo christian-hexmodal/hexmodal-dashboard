@@ -719,12 +719,12 @@ export default function App(){
 
 function Dashboard(){
 
-  const exportRef = useRef(null);
+
   const [items,setItems]=useState(()=>{
     try{ const s=localStorage.getItem("hx_items"); return s?JSON.parse(s):SEED_ITEMS; }catch{ return SEED_ITEMS; }
   });
   const [loading,setLoading]=useState(false);
-  const [exporting,setExporting]=useState(false);
+
   const [refreshMsg,setRefreshMsg]=useState(null);
   const [selectedWeek,setSelectedWeek]=useState(18);
   const [dataSource,setDataSource]=useState(()=>localStorage.getItem("hx_items")?"live":"seed");
@@ -757,197 +757,108 @@ function Dashboard(){
     finally{setTimeout(()=>setSeedMsg(null),4000);}
   },[pendingSeed]);
 
-  const handleExport = useCallback(async () => {
-    setExporting(true);
-    try {
-      const { default: jsPDF } = await import('jspdf');
-      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-      const W = pdf.internal.pageSize.getWidth();
-      const H = pdf.internal.pageSize.getHeight();
-      const margin = 40;
-      const col = W - margin * 2;
-      let y = margin;
+  const handleExport = useCallback(() => {
+    const total = classified.length;
+    const done = classified.filter(i=>i.cls==="done").length;
+    const late = classified.filter(i=>i.cls==="late").length;
+    const stuck = classified.filter(i=>i.cls==="stuck").length;
+    const open = classified.filter(i=>i.cls==="open").length;
+    const onTimePct = total > 0 ? Math.round((done/total)*100) : 0;
+    const completedPct = total > 0 ? Math.round(((done+late)/total)*100) : 0;
+    const carryoverPct = total > 0 ? Math.round((carryoverCount/total)*100) : 0;
+    const clsLabel = {done:"Done", late:"Done Late", open:"Open", stuck:"Stuck"};
+    const clsColor = {done:"#1a9e5f", late:"#7c3aed", open:"#4b5563", stuck:"#c0392b"};
 
-      const newPage = () => { pdf.addPage(); y = margin; };
-      const checkY = (need = 20) => { if (y + need > H - margin) newPage(); };
+    const kpis = [
+      {label:"Active", value:total, color:"#2563eb"},
+      {label:"Done", value:done, color:"#1a9e5f"},
+      {label:"Done Late", value:late, color:"#7c3aed"},
+      {label:"Open", value:open, color:"#4b5563"},
+      {label:"Stuck", value:stuck, color:"#c0392b"},
+      {label:"Unplanned", value:unplannedCount, color:"#64748b"},
+      {label:"Carryover", value:carryoverCount, color:"#2563eb"},
+    ];
 
-      // ── Palette
-      const hex = c => c.replace("#","");
-      const rgb = c => { const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16); return [r,g,b]; };
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+    <title>Hexmodal Week ${selectedWeek}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:system-ui,sans-serif;font-size:11px;color:#1a2035;padding:32px;background:#fff;}
+      h1{font-size:20px;font-weight:800;letter-spacing:.04em;}
+      h2{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin:20px 0 8px;}
+      .sub{font-size:10px;color:#64748b;margin-top:2px;}
+      .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px;}
+      .kpi{border-radius:6px;padding:10px 6px 8px;text-align:center;border:1px solid;}
+      .kpi-val{font-size:22px;font-weight:800;line-height:1;}
+      .kpi-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.06em;margin-top:4px;color:#64748b;}
+      .bar-row{margin-bottom:8px;}
+      .bar-label{display:flex;justify-content:space-between;margin-bottom:3px;font-size:10px;color:#374151;}
+      .bar-track{background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;}
+      .bar-fill{height:8px;border-radius:4px;}
+      table{width:100%;border-collapse:collapse;font-size:10px;}
+      th{background:#f1f5f9;text-align:left;padding:5px 8px;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-bottom:1px solid #e2e8f0;}
+      td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
+      tr:hover td{background:#f8fafc;}
+      .tag{display:inline-block;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:600;color:#fff;}
+      @media print{body{padding:20px;} h2{margin:14px 0 6px;} @page{margin:1cm;}}
+    </style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #0d1117;">
+      <div><h1>HEXMODAL</h1><div class="sub">Week ${selectedWeek} Report &nbsp;·&nbsp; ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div></div>
+      <div style="text-align:right;font-size:10px;color:#94a3b8;">${onTimePct}% on time</div>
+    </div>
 
-      // ── Header
-      pdf.setFillColor(...rgb("#0d1117"));
-      pdf.rect(0, 0, W, 60, "F");
-      pdf.setTextColor(255,255,255);
-      pdf.setFont("helvetica","bold");
-      pdf.setFontSize(18);
-      pdf.text("HEXMODAL", margin, 36);
-      pdf.setFont("helvetica","normal");
-      pdf.setFontSize(10);
-      pdf.text(`Week ${selectedWeek} Report  ·  ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}`, margin, 50);
-      y = 80;
+    <div class="kpis">
+      ${kpis.map(k=>`<div class="kpi" style="border-color:${k.color}33;background:${k.color}0d;">
+        <div class="kpi-val" style="color:${k.color};">${k.value}</div>
+        <div class="kpi-lbl">${k.label}</div>
+      </div>`).join("")}
+    </div>
 
-      // ── KPI boxes
-      const total = classified.length;
-      const done = classified.filter(i=>i.cls==="done").length;
-      const late = classified.filter(i=>i.cls==="late").length;
-      const stuck = classified.filter(i=>i.cls==="stuck").length;
-      const open = classified.filter(i=>i.cls==="open").length;
-      const onTimePct = total > 0 ? Math.round((done/total)*100) : 0;
-      const completedPct = total > 0 ? Math.round(((done+late)/total)*100) : 0;
-      const kpis = [
-        {label:"Active", value:total, color:"#60a5fa"},
-        {label:"Done", value:done, color:"#3dd68c"},
-        {label:"Done Late", value:late, color:"#a78bfa"},
-        {label:"Open", value:open, color:"#6b7280"},
-        {label:"Stuck", value:stuck, color:"#e05c5c"},
-        {label:"Unplanned", value:unplannedCount, color:"#94a3b8"},
-        {label:"Carryover", value:carryoverCount, color:"#60a5fa"},
-      ];
-      const kw = (col - 6*6) / 7;
-      kpis.forEach((k,i) => {
-        const x = margin + i*(kw+6);
-        pdf.setFillColor(...rgb(k.color+"22".slice(0,2)));
-        pdf.setDrawColor(...rgb(k.color));
-        pdf.roundedRect(x, y, kw, 44, 4, 4, "FD");
-        pdf.setTextColor(...rgb(k.color));
-        pdf.setFont("helvetica","bold");
-        pdf.setFontSize(20);
-        pdf.text(String(k.value), x+kw/2, y+26, {align:"center"});
-        pdf.setFontSize(7);
-        pdf.setFont("helvetica","normal");
-        pdf.text(k.label.toUpperCase(), x+kw/2, y+38, {align:"center"});
-      });
-      y += 60;
+    <h2>Weekly Score</h2>
+    ${[
+      {label:`Done on time`, val:`${done}/${total}`, pct:onTimePct, color:"#1a9e5f"},
+      {label:`Total completed`, val:`${done+late}/${total}`, pct:completedPct, color:"#7c3aed"},
+      {label:`Carryover load`, val:`${carryoverCount} tasks`, pct:carryoverPct, color:"#2563eb"},
+    ].map(b=>`<div class="bar-row">
+      <div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div>
+    </div>`).join("")}
 
-      // ── Score bars
-      pdf.setTextColor(30,30,30);
-      pdf.setFont("helvetica","bold");
-      pdf.setFontSize(11);
-      pdf.text("WEEKLY SCORE", margin, y); y += 14;
-      const bars = [
-        {label:`Done on time — ${done}/${total}`, pct:onTimePct, color:"#3dd68c"},
-        {label:`Total completed — ${done+late}/${total}`, pct:completedPct, color:"#a78bfa"},
-        {label:`Carryover load — ${carryoverCount} tasks`, pct:total>0?Math.round((carryoverCount/total)*100):0, color:"#60a5fa"},
-      ];
-      bars.forEach(b => {
-        pdf.setFont("helvetica","normal");
-        pdf.setFontSize(8);
-        pdf.setTextColor(60,60,60);
-        pdf.text(b.label, margin, y+9);
-        pdf.setFillColor(230,230,230);
-        pdf.roundedRect(margin, y+12, col, 8, 2, 2, "F");
-        pdf.setFillColor(...rgb(b.color));
-        pdf.roundedRect(margin, y+12, Math.max(col*(b.pct/100),2), 8, 2, 2, "F");
-        pdf.setTextColor(...rgb(b.color));
-        pdf.setFont("helvetica","bold");
-        pdf.setFontSize(8);
-        pdf.text(`${b.pct}%`, margin+col+4, y+19);
-        y += 26;
-      });
-      y += 8;
+    <h2>By Person</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Active</th><th>Done</th><th>Done Late</th><th>Open</th><th>Stuck</th></tr></thead>
+      <tbody>
+        ${personRows.map(r=>`<tr>
+          <td style="font-weight:600;">${r.name}</td>
+          <td>${r.total}</td>
+          <td style="color:#1a9e5f;font-weight:600;">${r.counts.done||0}</td>
+          <td style="color:#7c3aed;">${r.counts.late||0}</td>
+          <td style="color:#4b5563;">${r.counts.open||0}</td>
+          <td style="color:#c0392b;">${r.counts.stuck||0}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
 
-      // ── Trend bar chart (last weeks)
-      checkY(80);
-      pdf.setFont("helvetica","bold");
-      pdf.setFontSize(11);
-      pdf.setTextColor(30,30,30);
-      pdf.text("WEEKLY TREND", margin, y); y += 14;
-      const weeks = displayWeeks;
-      const barW = Math.min(col/weeks.length - 4, 40);
-      const chartH = 50;
-      weeks.forEach((w,i) => {
-        const d = weeklyData[w]||{};
-        const total = d.active||1;
-        const donePct = (d.done||0)/total;
-        const latePct = (d.late||0)/total;
-        const x = margin + i*(col/weeks.length) + (col/weeks.length - barW)/2;
-        const isSelected = w === selectedWeek;
-        // done bar
-        pdf.setFillColor(...rgb(isSelected?"#3dd68c":"#3dd68c88"));
-        pdf.rect(x, y+chartH - chartH*donePct, barW*0.45, chartH*donePct, "F");
-        // late bar
-        pdf.setFillColor(...rgb(isSelected?"#a78bfa":"#a78bfa88"));
-        pdf.rect(x+barW*0.5, y+chartH - chartH*latePct, barW*0.45, chartH*latePct, "F");
-        // week label
-        pdf.setFontSize(6);
-        pdf.setTextColor(100,100,100);
-        pdf.setFont("helvetica", isSelected?"bold":"normal");
-        pdf.text(`W${w}`, x+barW/2, y+chartH+8, {align:"center"});
-        if(isSelected){ pdf.setDrawColor(...rgb("#60a5fa")); pdf.setLineWidth(0.5); pdf.rect(x-2,y-2,barW+4,chartH+4); }
-      });
-      y += chartH + 18;
+    <h2>All Tasks (${classified.length})</h2>
+    <table>
+      <thead><tr><th>Task</th><th>Lead</th><th>Status</th><th>Created</th><th>Completed</th></tr></thead>
+      <tbody>
+        ${classified.map(i=>`<tr>
+          <td>${i.name}</td>
+          <td style="color:#64748b;">${i.lead||"—"}</td>
+          <td><span class="tag" style="background:${clsColor[i.cls]||"#888"};">${clsLabel[i.cls]||i.cls}</span></td>
+          <td style="color:#94a3b8;">${i.createdDate||"—"}</td>
+          <td style="color:#94a3b8;">${i.completedDate||"—"}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <script>window.onload=()=>{window.print();}</script>
+    </body></html>`;
 
-      // ── Per-person table
-      checkY(40);
-      pdf.setFont("helvetica","bold");
-      pdf.setFontSize(11);
-      pdf.setTextColor(30,30,30);
-      pdf.text("BY PERSON", margin, y); y += 12;
-      const pCols = [{h:"Name",w:130},{h:"Active",w:45},{h:"Done",w:45},{h:"Done Late",w:60},{h:"Open",w:45},{h:"Stuck",w:45}];
-      pdf.setFillColor(240,240,240);
-      pdf.rect(margin, y, col, 16, "F");
-      let px = margin+4;
-      pCols.forEach(c => {
-        pdf.setFont("helvetica","bold"); pdf.setFontSize(8); pdf.setTextColor(60,60,60);
-        pdf.text(c.h, px, y+11); px+=c.w;
-      });
-      y += 16;
-      personRows.forEach((row,ri) => {
-        checkY(14);
-        if(ri%2===0){ pdf.setFillColor(248,248,248); pdf.rect(margin,y,col,14,"F"); }
-        px = margin+4;
-        const vals = [row.name, row.total, row.counts.done||0, row.counts.late||0, row.counts.open||0, row.counts.stuck||0];
-        pCols.forEach((c,ci) => {
-          pdf.setFont("helvetica", ci===0?"normal":"normal");
-          pdf.setFontSize(8);
-          pdf.setTextColor(30,30,30);
-          const txt = String(vals[ci]);
-          pdf.text(ci===0 ? pdf.splitTextToSize(txt, c.w-4)[0] : txt, px, y+10);
-          px+=c.w;
-        });
-        y+=14;
-      });
-      y += 12;
-
-      // ── Full task list
-      checkY(40);
-      pdf.setFont("helvetica","bold");
-      pdf.setFontSize(11);
-      pdf.setTextColor(30,30,30);
-      pdf.text("ALL TASKS", margin, y); y += 12;
-      const tCols = [{h:"Task",w:220},{h:"Lead",w:90},{h:"Status",w:70},{h:"Created",w:55},{h:"Completed",w:55}];
-      pdf.setFillColor(240,240,240);
-      pdf.rect(margin, y, col, 16, "F");
-      px = margin+4;
-      tCols.forEach(c => {
-        pdf.setFont("helvetica","bold"); pdf.setFontSize(8); pdf.setTextColor(60,60,60);
-        pdf.text(c.h, px, y+11); px+=c.w;
-      });
-      y+=16;
-      const clsColor = {done:"#3dd68c", late:"#a78bfa", open:"#6b7280", stuck:"#e05c5c"};
-      classified.forEach((item,ri) => {
-        checkY(14);
-        if(ri%2===0){ pdf.setFillColor(248,248,248); pdf.rect(margin,y,col,14,"F"); }
-        px=margin+4;
-        const vals=[item.name, item.lead||"—", item.cls.replace("late","Done Late").replace("done","Done").replace("open","Open").replace("stuck","Stuck"), item.createdDate||"—", item.completedDate||"—"];
-        tCols.forEach((c,ci) => {
-          const color = ci===2 ? rgb(clsColor[item.cls]||"#888888") : [30,30,30];
-          pdf.setTextColor(...color);
-          pdf.setFont("helvetica","normal");
-          pdf.setFontSize(ci===0?7.5:8);
-          const txt = pdf.splitTextToSize(String(vals[ci]), c.w-4)[0];
-          pdf.text(txt, px, y+10);
-          px+=c.w;
-        });
-        y+=14;
-      });
-
-      pdf.save(`hexmodal-week-${selectedWeek}.pdf`);
-    } finally {
-      setExporting(false);
-    }
-  }, [selectedWeek, classified, counts, carryoverCount, unplannedCount, personRows, weeklyData, displayWeeks]);
+    const win = window.open("","_blank");
+    win.document.write(html);
+    win.document.close();
+  }, [selectedWeek, classified, carryoverCount, unplannedCount, personRows]);
 
   const allWeeks=useMemo(()=>[...new Set(items.map(i=>i.weekCreated).filter(Boolean))].sort((a,b)=>a-b),[items]);
   const displayWeeks=allWeeks.slice(-MAX_WEEKS);
@@ -1030,7 +941,7 @@ function Dashboard(){
 
   return(
     <ThemeCtx.Provider value={C}>
-    <div ref={exportRef} style={{background:C.bg,minHeight:"100vh",padding:20,fontFamily:"'DM Mono','Fira Mono','Courier New',monospace",color:C.text,boxSizing:"border-box",transition:"background 0.25s, color 0.25s"}}>
+    <div style={{background:C.bg,minHeight:"100vh",padding:20,fontFamily:"'DM Mono','Fira Mono','Courier New',monospace",color:C.text,boxSizing:"border-box",transition:"background 0.25s, color 0.25s"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
@@ -1063,8 +974,8 @@ function Dashboard(){
             <button onClick={handleRefresh} disabled={loading} style={{background:loading?"transparent":C.accent+"18",border:`1px solid ${C.accent}55`,color:loading?C.muted:C.accent,borderRadius:8,padding:"7px 14px",cursor:loading?"not-allowed":"pointer",fontSize:11,fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>
               {loading?"loading...":"↻ refresh live"}
             </button>
-            <button onClick={handleExport} disabled={exporting} style={{background:exporting?"transparent":C.panel,border:`1px solid ${C.border}`,color:exporting?C.muted:C.text,borderRadius:8,padding:"7px 14px",cursor:exporting?"not-allowed":"pointer",fontSize:11,fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>
-              {exporting?"exporting...":"⬇ export pdf"}
+            <button onClick={handleExport} style={{background:C.panel,border:`1px solid ${C.border}`,color:C.text,borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:11,fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>
+              ⬇ export pdf
             </button>
           </div>
           {refreshMsg&&<div style={{fontSize:10,color:C.muted,textAlign:"right"}}>{refreshMsg}</div>}
