@@ -787,6 +787,9 @@ function Dashboard(){
   const newThisWeek=classified.filter(i=>i.weekCreated===selectedWeek).length;
   const carryoverCount=classified.filter(i=>i.isCarryover).length;
   const unplannedCount=filteredWeekItems.filter(i=>i.name?.startsWith("[SPIKE]")).length;
+  const doneOnTimeThisWeek=classified.filter(i=>i.weekDone===selectedWeek && i.weekCreated===selectedWeek).length;
+  const doneLateThisWeek=classified.filter(i=>i.weekDone===selectedWeek && i.weekCreated<selectedWeek).length;
+  const totalDoneThisWeek=doneOnTimeThisWeek+doneLateThisWeek;
 
   const personRows=useMemo(()=>{
     const map={};
@@ -816,13 +819,13 @@ function Dashboard(){
     const clsLabel = {done:"Done", late:"Done Late", open:"Open", stuck:"Stuck"};
     const clsColor = {done:"#1a9e5f", late:"#7c3aed", open:"#4b5563", stuck:"#c0392b"};
     const kpis = [
-      {label:"Active", value:total, color:"#2563eb"},
-      {label:"Done", value:done, color:"#1a9e5f"},
-      {label:"Done Late", value:late, color:"#7c3aed"},
-      {label:"Open", value:open, color:"#4b5563"},
+      {label:"Assigned", value:total, color:"#2563eb"},
+      {label:"New Items", value:classified.filter(i=>i.weekCreated===selectedWeek).length, color:"#60a5fa"},
+      {label:"Done on Time", value:doneOnTimeThisWeek, color:"#1a9e5f"},
+      {label:"Done Late", value:doneFromPastThisWeek, color:"#7c3aed"},
+      {label:"Total Done this Week", value:totalDoneThisWeek, color:"#1a9e5f"},
+      {label:"Still Open", value:open, color:"#4b5563"},
       {label:"Stuck", value:stuck, color:"#c0392b"},
-      {label:"Unplanned", value:unplannedCount, color:"#64748b"},
-      {label:"Carryover", value:carryoverCount, color:"#2563eb"},
     ];
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
     <title>Hexmodal Week ${selectedWeek}</title>
@@ -979,13 +982,13 @@ function Dashboard(){
 
       {/* KPI ROW */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8,marginBottom:16}}>
-        <KPI label="Active" value={filteredWeekItems.length} color={C.accent}/>
-        <KPI label="New" value={newThisWeek} sub={`${carryoverCount} carry`} color={C.carryover}/>
-        <KPI label="Done" value={counts.done} color={C.done}/>
-        <KPI label="Open" value={counts.open} color={C.open}/>
-        <KPI label="Done Late" value={counts.late} color={C.late}/>
+        <KPI label="Assigned" value={filteredWeekItems.length} color={C.accent}/>
+        <KPI label="New Items" value={newThisWeek} sub={`${carryoverCount} carry`} color={C.carryover}/>
+        <KPI label="Done on Time" value={doneOnTimeThisWeek} color={C.done}/>
+        <KPI label="Done Late" value={doneLateThisWeek} color={C.late}/>
+        <KPI label="Total Done this Week" value={totalDoneThisWeek} color={C.done}/>
+        <KPI label="Still Open" value={counts.open} color={C.open}/>
         <KPI label="Stuck" value={counts.stuck} color={C.stuck}/>
-        <KPI label="Unplanned" value={unplannedCount} color={C.muted}/>
       </div>
 
       {/* SCORE CARD */}
