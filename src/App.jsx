@@ -1,6 +1,8 @@
 
 
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 // ─── SEED DATA START ──────────────────────────────────────────────────────────
 const SEED_ITEMS = [
@@ -719,10 +721,12 @@ export default function App(){
 
 function Dashboard(){
 
+  const exportRef = useRef(null);
   const [items,setItems]=useState(()=>{
     try{ const s=localStorage.getItem("hx_items"); return s?JSON.parse(s):SEED_ITEMS; }catch{ return SEED_ITEMS; }
   });
   const [loading,setLoading]=useState(false);
+  const [exporting,setExporting]=useState(false);
   const [refreshMsg,setRefreshMsg]=useState(null);
   const [selectedWeek,setSelectedWeek]=useState(18);
   const [dataSource,setDataSource]=useState(()=>localStorage.getItem("hx_items")?"live":"seed");
@@ -754,6 +758,20 @@ function Dashboard(){
     }catch(e){setSeedMsg("Failed: "+e.message);}
     finally{setTimeout(()=>setSeedMsg(null),4000);}
   },[pendingSeed]);
+
+  const handleExport = useCallback(async () => {
+    if (!exportRef.current) return;
+    setExporting(true);
+    try {
+      const canvas = await html2canvas(exportRef.current, { scale: 2, useCORS: true, backgroundColor: C.bg });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`hexmodal-week-${selectedWeek}.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  }, [selectedWeek, C.bg]);
 
   const allWeeks=useMemo(()=>[...new Set(items.map(i=>i.weekCreated).filter(Boolean))].sort((a,b)=>a-b),[items]);
   const displayWeeks=allWeeks.slice(-MAX_WEEKS);
@@ -836,7 +854,7 @@ function Dashboard(){
 
   return(
     <ThemeCtx.Provider value={C}>
-    <div style={{background:C.bg,minHeight:"100vh",padding:20,fontFamily:"'DM Mono','Fira Mono','Courier New',monospace",color:C.text,boxSizing:"border-box",transition:"background 0.25s, color 0.25s"}}>
+    <div ref={exportRef} style={{background:C.bg,minHeight:"100vh",padding:20,fontFamily:"'DM Mono','Fira Mono','Courier New',monospace",color:C.text,boxSizing:"border-box",transition:"background 0.25s, color 0.25s"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
@@ -868,6 +886,9 @@ function Dashboard(){
             </button>
             <button onClick={handleRefresh} disabled={loading} style={{background:loading?"transparent":C.accent+"18",border:`1px solid ${C.accent}55`,color:loading?C.muted:C.accent,borderRadius:8,padding:"7px 14px",cursor:loading?"not-allowed":"pointer",fontSize:11,fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>
               {loading?"loading...":"↻ refresh live"}
+            </button>
+            <button onClick={handleExport} disabled={exporting} style={{background:exporting?"transparent":C.panel,border:`1px solid ${C.border}`,color:exporting?C.muted:C.text,borderRadius:8,padding:"7px 14px",cursor:exporting?"not-allowed":"pointer",fontSize:11,fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>
+              {exporting?"exporting...":"⬇ export pdf"}
             </button>
           </div>
           {refreshMsg&&<div style={{fontSize:10,color:C.muted,textAlign:"right"}}>{refreshMsg}</div>}
