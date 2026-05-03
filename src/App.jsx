@@ -557,6 +557,10 @@ function WeekScoreCard({classified, carryoverCount, weekItems, selectedWeek, all
   const totalDonePct = total > 0 ? Math.round((totalDoneThisWeek / total) * 100) : 0;
   const completedPct = total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
   const carryoverPct = total > 0 ? Math.round((carryoverCount / total) * 100) : 0;
+  // Cumulative — feel-good metric: how much have we shipped overall
+  const allTimeDone = allItems.filter(i => (i.status||"").toLowerCase() === "done" && i.weekDone !== null).length;
+  const allTimeTotal = allItems.length;
+  const allTimeDonePct = allTimeTotal > 0 ? Math.round((allTimeDone / allTimeTotal) * 100) : 0;
 
   const scoreColor = onTimePct >= 70 ? C.done : onTimePct >= 40 ? C.open : C.stuck;
 
@@ -618,6 +622,7 @@ Give a single short paragraph (2-3 sentences max) with one specific, actionable 
           <ScoreBar label="Done on time" pct={onTimePct} color={C.done} sub={`${doneOnTimeThisWeek}/${total}`}/>
           <ScoreBar label="Done from past weeks" pct={fromPastPct} color={C.late} sub={`${doneFromPastThisWeek}/${total}`}/>
           <ScoreBar label="Total done this week" pct={totalDonePct} color={C.carryover} sub={`${totalDoneThisWeek}/${total}`}/>
+          <ScoreBar label="Total items completed" pct={allTimeDonePct} color={C.done} sub={`${allTimeDone}/${allTimeTotal} all-time`}/>
         </div>
         <div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
@@ -857,11 +862,17 @@ function Dashboard(){
       ${kpis.map(k=>`<div class="kpi" style="border-color:${k.color}33;background:${k.color}0d;"><div class="kpi-val" style="color:${k.color};">${k.value}</div><div class="kpi-lbl">${k.label}</div></div>`).join("")}
     </div>
     <h2>Weekly Score</h2>
-    ${[
-      {label:"Done on time", val:`${doneOnTimeThisWeek}/${total}`, pct:onTimePct, color:"#1a9e5f"},
-      {label:"Done from past weeks", val:`${doneFromPastThisWeek}/${total}`, pct:fromPastPct, color:"#7c3aed"},
-      {label:"Total done this week", val:`${totalDoneThisWeek}/${total}`, pct:totalDonePct, color:"#2563eb"},
-    ].map(b=>`<div class="bar-row"><div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div><div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div></div>`).join("")}
+    ${(() => {
+      const allTimeDone = items.filter(i=>(i.status||"").toLowerCase()==="done" && i.weekDone!==null).length;
+      const allTimeTotal = items.length;
+      const allTimePct = allTimeTotal > 0 ? Math.round((allTimeDone/allTimeTotal)*100) : 0;
+      return [
+        {label:"Done on time", val:`${doneOnTimeThisWeek}/${total}`, pct:onTimePct, color:"#1a9e5f"},
+        {label:"Done from past weeks", val:`${doneFromPastThisWeek}/${total}`, pct:fromPastPct, color:"#7c3aed"},
+        {label:"Total done this week", val:`${totalDoneThisWeek}/${total}`, pct:totalDonePct, color:"#2563eb"},
+        {label:"Total items completed (all-time)", val:`${allTimeDone}/${allTimeTotal}`, pct:allTimePct, color:"#1a9e5f"},
+      ].map(b=>`<div class="bar-row"><div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div><div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div></div>`).join("");
+    })()}
     <h2>By Person</h2>
     <table>
       <thead><tr><th>Name</th><th>Active</th><th>Done</th><th>Done Late</th><th>Open</th><th>Stuck</th></tr></thead>
@@ -877,7 +888,7 @@ function Dashboard(){
     const win = window.open("","_blank");
     win.document.write(html);
     win.document.close();
-  }, [selectedWeek, classified, carryoverCount, unplannedCount, personRows]);
+  }, [selectedWeek, classified, carryoverCount, unplannedCount, personRows, items]);
 
   const weeklyData=useMemo(()=>{
     const d={};
