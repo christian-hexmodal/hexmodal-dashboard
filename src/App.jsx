@@ -757,109 +757,6 @@ function Dashboard(){
     finally{setTimeout(()=>setSeedMsg(null),4000);}
   },[pendingSeed]);
 
-  const handleExport = useCallback(() => {
-    const total = classified.length;
-    const done = classified.filter(i=>i.cls==="done").length;
-    const late = classified.filter(i=>i.cls==="late").length;
-    const stuck = classified.filter(i=>i.cls==="stuck").length;
-    const open = classified.filter(i=>i.cls==="open").length;
-    const onTimePct = total > 0 ? Math.round((done/total)*100) : 0;
-    const completedPct = total > 0 ? Math.round(((done+late)/total)*100) : 0;
-    const carryoverPct = total > 0 ? Math.round((carryoverCount/total)*100) : 0;
-    const clsLabel = {done:"Done", late:"Done Late", open:"Open", stuck:"Stuck"};
-    const clsColor = {done:"#1a9e5f", late:"#7c3aed", open:"#4b5563", stuck:"#c0392b"};
-
-    const kpis = [
-      {label:"Active", value:total, color:"#2563eb"},
-      {label:"Done", value:done, color:"#1a9e5f"},
-      {label:"Done Late", value:late, color:"#7c3aed"},
-      {label:"Open", value:open, color:"#4b5563"},
-      {label:"Stuck", value:stuck, color:"#c0392b"},
-      {label:"Unplanned", value:unplannedCount, color:"#64748b"},
-      {label:"Carryover", value:carryoverCount, color:"#2563eb"},
-    ];
-
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-    <title>Hexmodal Week ${selectedWeek}</title>
-    <style>
-      *{box-sizing:border-box;margin:0;padding:0;}
-      body{font-family:system-ui,sans-serif;font-size:11px;color:#1a2035;padding:32px;background:#fff;}
-      h1{font-size:20px;font-weight:800;letter-spacing:.04em;}
-      h2{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin:20px 0 8px;}
-      .sub{font-size:10px;color:#64748b;margin-top:2px;}
-      .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px;}
-      .kpi{border-radius:6px;padding:10px 6px 8px;text-align:center;border:1px solid;}
-      .kpi-val{font-size:22px;font-weight:800;line-height:1;}
-      .kpi-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.06em;margin-top:4px;color:#64748b;}
-      .bar-row{margin-bottom:8px;}
-      .bar-label{display:flex;justify-content:space-between;margin-bottom:3px;font-size:10px;color:#374151;}
-      .bar-track{background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;}
-      .bar-fill{height:8px;border-radius:4px;}
-      table{width:100%;border-collapse:collapse;font-size:10px;}
-      th{background:#f1f5f9;text-align:left;padding:5px 8px;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-bottom:1px solid #e2e8f0;}
-      td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
-      tr:hover td{background:#f8fafc;}
-      .tag{display:inline-block;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:600;color:#fff;}
-      @media print{body{padding:20px;} h2{margin:14px 0 6px;} @page{margin:1cm;}}
-    </style></head><body>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #0d1117;">
-      <div><h1>HEXMODAL</h1><div class="sub">Week ${selectedWeek} Report &nbsp;·&nbsp; ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div></div>
-      <div style="text-align:right;font-size:10px;color:#94a3b8;">${onTimePct}% on time</div>
-    </div>
-
-    <div class="kpis">
-      ${kpis.map(k=>`<div class="kpi" style="border-color:${k.color}33;background:${k.color}0d;">
-        <div class="kpi-val" style="color:${k.color};">${k.value}</div>
-        <div class="kpi-lbl">${k.label}</div>
-      </div>`).join("")}
-    </div>
-
-    <h2>Weekly Score</h2>
-    ${[
-      {label:`Done on time`, val:`${done}/${total}`, pct:onTimePct, color:"#1a9e5f"},
-      {label:`Total completed`, val:`${done+late}/${total}`, pct:completedPct, color:"#7c3aed"},
-      {label:`Carryover load`, val:`${carryoverCount} tasks`, pct:carryoverPct, color:"#2563eb"},
-    ].map(b=>`<div class="bar-row">
-      <div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div>
-      <div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div>
-    </div>`).join("")}
-
-    <h2>By Person</h2>
-    <table>
-      <thead><tr><th>Name</th><th>Active</th><th>Done</th><th>Done Late</th><th>Open</th><th>Stuck</th></tr></thead>
-      <tbody>
-        ${personRows.map(r=>`<tr>
-          <td style="font-weight:600;">${r.name}</td>
-          <td>${r.total}</td>
-          <td style="color:#1a9e5f;font-weight:600;">${r.counts.done||0}</td>
-          <td style="color:#7c3aed;">${r.counts.late||0}</td>
-          <td style="color:#4b5563;">${r.counts.open||0}</td>
-          <td style="color:#c0392b;">${r.counts.stuck||0}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>
-
-    <h2>All Tasks (${classified.length})</h2>
-    <table>
-      <thead><tr><th>Task</th><th>Lead</th><th>Status</th><th>Created</th><th>Completed</th></tr></thead>
-      <tbody>
-        ${classified.map(i=>`<tr>
-          <td>${i.name}</td>
-          <td style="color:#64748b;">${i.lead||"—"}</td>
-          <td><span class="tag" style="background:${clsColor[i.cls]||"#888"};">${clsLabel[i.cls]||i.cls}</span></td>
-          <td style="color:#94a3b8;">${i.createdDate||"—"}</td>
-          <td style="color:#94a3b8;">${i.completedDate||"—"}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>
-    <script>window.onload=()=>{window.print();}</script>
-    </body></html>`;
-
-    const win = window.open("","_blank");
-    win.document.write(html);
-    win.document.close();
-  }, [selectedWeek, classified, carryoverCount, unplannedCount, personRows]);
-
   const allWeeks=useMemo(()=>[...new Set(items.map(i=>i.weekCreated).filter(Boolean))].sort((a,b)=>a-b),[items]);
   const displayWeeks=allWeeks.slice(-MAX_WEEKS);
 
@@ -897,6 +794,78 @@ function Dashboard(){
     });
     return Object.entries(map).map(([name,counts])=>({name,counts,total:Object.values(counts).reduce((a,b)=>a+b,0)})).sort((a,b)=>b.total-a.total);
   },[classified]);
+
+  const handleExport = useCallback(() => {
+    const total = classified.length;
+    const done = classified.filter(i=>i.cls==="done").length;
+    const late = classified.filter(i=>i.cls==="late").length;
+    const stuck = classified.filter(i=>i.cls==="stuck").length;
+    const open = classified.filter(i=>i.cls==="open").length;
+    const onTimePct = total > 0 ? Math.round((done/total)*100) : 0;
+    const completedPct = total > 0 ? Math.round(((done+late)/total)*100) : 0;
+    const carryoverPct = total > 0 ? Math.round((carryoverCount/total)*100) : 0;
+    const clsLabel = {done:"Done", late:"Done Late", open:"Open", stuck:"Stuck"};
+    const clsColor = {done:"#1a9e5f", late:"#7c3aed", open:"#4b5563", stuck:"#c0392b"};
+    const kpis = [
+      {label:"Active", value:total, color:"#2563eb"},
+      {label:"Done", value:done, color:"#1a9e5f"},
+      {label:"Done Late", value:late, color:"#7c3aed"},
+      {label:"Open", value:open, color:"#4b5563"},
+      {label:"Stuck", value:stuck, color:"#c0392b"},
+      {label:"Unplanned", value:unplannedCount, color:"#64748b"},
+      {label:"Carryover", value:carryoverCount, color:"#2563eb"},
+    ];
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+    <title>Hexmodal Week ${selectedWeek}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:system-ui,sans-serif;font-size:11px;color:#1a2035;padding:32px;background:#fff;}
+      h1{font-size:20px;font-weight:800;letter-spacing:.04em;}
+      h2{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin:20px 0 8px;}
+      .sub{font-size:10px;color:#64748b;margin-top:2px;}
+      .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:4px;}
+      .kpi{border-radius:6px;padding:10px 6px 8px;text-align:center;border:1px solid;}
+      .kpi-val{font-size:22px;font-weight:800;line-height:1;}
+      .kpi-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.06em;margin-top:4px;color:#64748b;}
+      .bar-row{margin-bottom:8px;}
+      .bar-label{display:flex;justify-content:space-between;margin-bottom:3px;font-size:10px;color:#374151;}
+      .bar-track{background:#e5e7eb;border-radius:4px;height:8px;overflow:hidden;}
+      .bar-fill{height:8px;border-radius:4px;}
+      table{width:100%;border-collapse:collapse;font-size:10px;}
+      th{background:#f1f5f9;text-align:left;padding:5px 8px;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-bottom:1px solid #e2e8f0;}
+      td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
+      .tag{display:inline-block;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:600;color:#fff;}
+      @media print{body{padding:20px;} h2{margin:14px 0 6px;} @page{margin:1cm;}}
+    </style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #0d1117;">
+      <div><h1>HEXMODAL</h1><div class="sub">Week ${selectedWeek} Report &nbsp;·&nbsp; ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div></div>
+      <div style="text-align:right;font-size:10px;color:#94a3b8;">${onTimePct}% on time</div>
+    </div>
+    <div class="kpis">
+      ${kpis.map(k=>`<div class="kpi" style="border-color:${k.color}33;background:${k.color}0d;"><div class="kpi-val" style="color:${k.color};">${k.value}</div><div class="kpi-lbl">${k.label}</div></div>`).join("")}
+    </div>
+    <h2>Weekly Score</h2>
+    ${[
+      {label:"Done on time", val:`${done}/${total}`, pct:onTimePct, color:"#1a9e5f"},
+      {label:"Total completed", val:`${done+late}/${total}`, pct:completedPct, color:"#7c3aed"},
+      {label:"Carryover load", val:`${carryoverCount} tasks`, pct:carryoverPct, color:"#2563eb"},
+    ].map(b=>`<div class="bar-row"><div class="bar-label"><span>${b.label}</span><span style="color:${b.color};font-weight:700;">${b.pct}% &nbsp; ${b.val}</span></div><div class="bar-track"><div class="bar-fill" style="width:${b.pct}%;background:${b.color};"></div></div></div>`).join("")}
+    <h2>By Person</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Active</th><th>Done</th><th>Done Late</th><th>Open</th><th>Stuck</th></tr></thead>
+      <tbody>${personRows.map(r=>`<tr><td style="font-weight:600;">${r.name}</td><td>${r.total}</td><td style="color:#1a9e5f;font-weight:600;">${r.counts.done||0}</td><td style="color:#7c3aed;">${r.counts.late||0}</td><td style="color:#4b5563;">${r.counts.open||0}</td><td style="color:#c0392b;">${r.counts.stuck||0}</td></tr>`).join("")}</tbody>
+    </table>
+    <h2>All Tasks (${classified.length})</h2>
+    <table>
+      <thead><tr><th>Task</th><th>Lead</th><th>Status</th><th>Created</th><th>Completed</th></tr></thead>
+      <tbody>${classified.map(i=>`<tr><td>${i.name}</td><td style="color:#64748b;">${i.lead||"—"}</td><td><span class="tag" style="background:${clsColor[i.cls]||"#888"};">${clsLabel[i.cls]||i.cls}</span></td><td style="color:#94a3b8;">${i.createdDate||"—"}</td><td style="color:#94a3b8;">${i.completedDate||"—"}</td></tr>`).join("")}</tbody>
+    </table>
+    <script>window.onload=()=>{window.print();}</script>
+    </body></html>`;
+    const win = window.open("","_blank");
+    win.document.write(html);
+    win.document.close();
+  }, [selectedWeek, classified, carryoverCount, unplannedCount, personRows]);
 
   const weeklyData=useMemo(()=>{
     const d={};
