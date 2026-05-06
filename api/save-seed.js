@@ -1,5 +1,8 @@
+import { requireAuth } from "./_auth.js";
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
+  if (!requireAuth(req, res)) return;
 
   const { items } = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
   if (!items?.length) return res.status(400).json({ error: "No items provided" });

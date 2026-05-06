@@ -875,39 +875,54 @@ function PersonFilterBar({people, selected, onSelect}) {
   );
 }
 
-// ─── PASSWORD GATE ────────────────────────────────────────────────────────────
-const APP_PASSWORD = import.meta.env.VITE_APP_PASSWORD;
-const SESSION_KEY = "hx_auth";
+// ─── GOOGLE SIGN-IN GATE ──────────────────────────────────────────────────────
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-function PasswordGate({ onAuth }) {
-  const [input, setInput] = useState("");
-  const [error, setError] = useState(false);
+function GoogleSignInGate({ onAuth }) {
+  const btnRef = useRef(null);
+  const [error, setError] = useState(null);
 
-  const submit = () => {
-    if (input === APP_PASSWORD) {
-      sessionStorage.setItem(SESSION_KEY, "1");
-      onAuth();
-    } else {
-      setError(true);
-      setInput("");
-    }
-  };
+  useEffect(() => {
+    let interval;
+    const init = () => {
+      if (!window.google?.accounts?.id || !btnRef.current) return false;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (response) => {
+          setError(null);
+          try {
+            const resp = await fetch("/api/auth-verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ credential: response.credential }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || "Sign-in failed");
+            onAuth(data);
+          } catch (e) { setError(e.message); }
+        },
+        hd: "hexmodal.com",
+      });
+      window.google.accounts.id.renderButton(btnRef.current, {
+        theme: "filled_black",
+        size: "large",
+        shape: "pill",
+        text: "signin_with",
+      });
+      return true;
+    };
+    if (!init()) interval = setInterval(() => { if (init()) clearInterval(interval); }, 100);
+    return () => clearInterval(interval);
+  }, [onAuth]);
 
   return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#07090f"}}>
-      <div style={{display:"flex",flexDirection:"column",gap:12,alignItems:"center"}}>
-        <span style={{color:"#dde1ec",fontFamily:"monospace",fontSize:14,letterSpacing:"0.08em",marginBottom:4}}>HEXMODAL</span>
-        <input
-          autoFocus
-          type="password"
-          placeholder="Password"
-          value={input}
-          onChange={e=>{setInput(e.target.value);setError(false);}}
-          onKeyDown={e=>e.key==="Enter"&&submit()}
-          style={{background:"#0d1117",border:`1px solid ${error?"#e05c5c":"#161d2b"}`,borderRadius:6,padding:"8px 14px",color:"#dde1ec",fontFamily:"monospace",fontSize:13,outline:"none",width:200}}
-        />
-        {error && <span style={{color:"#e05c5c",fontFamily:"monospace",fontSize:11}}>incorrect password</span>}
-        <button onClick={submit} style={{background:"#60a5fa",color:"#07090f",border:"none",borderRadius:6,padding:"7px 24px",fontFamily:"monospace",fontSize:12,cursor:"pointer",letterSpacing:"0.06em"}}>ENTER</button>
+      <div style={{display:"flex",flexDirection:"column",gap:14,alignItems:"center"}}>
+        <span style={{color:"#dde1ec",fontFamily:"monospace",fontSize:16,letterSpacing:"0.1em",marginBottom:4,fontWeight:700}}>HEXMODAL</span>
+        <span style={{color:"#7a88a8",fontFamily:"monospace",fontSize:11,letterSpacing:"0.06em",marginBottom:14,textTransform:"uppercase"}}>Done By Friday</span>
+        <div ref={btnRef}/>
+        <span style={{color:"#4e5a73",fontSize:10,fontFamily:"monospace",marginTop:6}}>hexmodal.com accounts only</span>
+        {error && <span style={{color:"#e05c5c",fontFamily:"monospace",fontSize:11,marginTop:4}}>{error}</span>}
       </div>
     </div>
   );
@@ -915,12 +930,22 @@ function PasswordGate({ onAuth }) {
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App(){
-  const [authed, setAuthed] = useState(!APP_PASSWORD || sessionStorage.getItem(SESSION_KEY) === "1");
-  if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
-  return <Dashboard />;
+  const [user, setUser] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/me").then(r => r.ok ? r.json() : null).then(data => {
+      if (data) setUser(data);
+      setChecking(false);
+    }).catch(() => setChecking(false));
+  }, []);
+
+  if (checking) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#07090f",color:"#4e5a73",fontFamily:"monospace",fontSize:11}}>Loading...</div>;
+  if (!user) return <GoogleSignInGate onAuth={setUser}/>;
+  return <Dashboard user={user} onSignOut={() => { fetch("/api/logout", {method:"POST"}); setUser(null); }}/>;
 }
 
-function Dashboard(){
+function Dashboard({ user, onSignOut }){
 
 
   const [items,setItems]=useState(()=>{
@@ -1172,6 +1197,12 @@ function Dashboard(){
             <button onClick={handleExport} style={{background:C.panel,border:`1px solid ${C.border}`,color:C.text,borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:11,fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>
               ⬇ export pdf
             </button>
+            {user && (
+              <button onClick={onSignOut} title={`Signed in as ${user.email}`} style={{background:C.panel,border:`1px solid ${C.border}`,color:C.muted,borderRadius:8,padding:"4px 6px",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:6}}>
+                {user.picture && <img src={user.picture} alt="" style={{width:20,height:20,borderRadius:"50%"}}/>}
+                <span style={{fontSize:10,letterSpacing:"0.04em",paddingRight:6}}>sign out</span>
+              </button>
+            )}
           </div>
           {refreshMsg&&<div style={{fontSize:10,color:C.muted,textAlign:"right"}}>{refreshMsg}</div>}
           {(pendingSeed||seedMsg)&&<div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8,marginTop:4}}>
