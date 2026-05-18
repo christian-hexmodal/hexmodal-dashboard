@@ -289,14 +289,15 @@ function tuesdayWeek(dateStr) {
 }
 
 // ─── CLASSIFICATION LOGIC ─────────────────────────────────────────────────────
+// Classification is relative to the viewing week: an item completed in a *later*
+// week was still open at the end of the viewing week, so it classifies as "open"
+// when looking back, and only flips to "late" when viewing its actual done-week.
 function classifyItem(item, viewingWeek) {
   const st = (item.status || "").toLowerCase();
   if (st === "stuck" || st === "move to next board") return "stuck";
-  if (st === "done") {
-    const wd = item.weekDone;
-    if (wd !== null && wd === item.weekCreated) return "done";       // same week = Done
-    if (wd !== null && wd > item.weekCreated) return "late";         // 1+ weeks later = Done Late
-    return "open";
+  const wd = item.weekDone;
+  if (st === "done" && wd !== null && wd === viewingWeek) {
+    return item.weekCreated === viewingWeek ? "done" : "late";
   }
   return "open";
 }
