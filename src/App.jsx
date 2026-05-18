@@ -258,7 +258,7 @@ const MAX_WEEKS = 10;
 // "computed" = Tuesday-start ISO week (tuesdayWeek below)
 // "monday"   = Monday board formula columns (US Sun-start WEEKNUM)
 // Saved via /api/save-setting → updates this constant on main.
-const WEEK_SOURCE_DEFAULT = "computed";
+const WEEK_SOURCE_DEFAULT = "monday";
 // ─── WEEK SOURCE DEFAULT END ──────────────────────────────────────────────────
 
 // Swap weekCreated/weekDone to Monday-formula values when source==="monday".
