@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Week source markers not found in file" });
     }
 
-    const newBlock = `${startMarker}\n// "computed" = Tuesday-start ISO week (tuesdayWeek below)\n// "monday"   = Monday board formula columns (US Sun-start WEEKNUM)\n// Saved via /api/save-setting → updates this constant on main.\nconst WEEK_SOURCE_DEFAULT = ${JSON.stringify(weekSource)};\n${endMarker}`;
+    const newBlock = `${startMarker}\n// "computed" = Mon-start ISO 8601 week (isoWeek below) — matches Monday UI\n// "monday"   = Monday board formula columns (returns US Sun-start via API,\n//              which disagrees with the Monday UI at Sunday boundaries)\n// Saved via /api/save-setting → updates this constant on main.\nconst WEEK_SOURCE_DEFAULT = ${JSON.stringify(weekSource)};\n${endMarker}`;
 
     const updatedContent = currentContent.slice(0, startIdx) + newBlock + currentContent.slice(endIdx);
     if (updatedContent === currentContent) return res.status(200).json({ ok: true, unchanged: true });

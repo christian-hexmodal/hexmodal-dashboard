@@ -255,10 +255,11 @@ const BOARD_ID = "18404792373";
 const MAX_WEEKS = 10;
 
 // ─── WEEK SOURCE DEFAULT START ────────────────────────────────────────────────
-// "computed" = Tuesday-start ISO week (tuesdayWeek below)
-// "monday"   = Monday board formula columns (US Sun-start WEEKNUM)
+// "computed" = Mon-start ISO 8601 week (isoWeek below) — matches Monday UI
+// "monday"   = Monday board formula columns (returns US Sun-start via API,
+//              which disagrees with the Monday UI at Sunday boundaries)
 // Saved via /api/save-setting → updates this constant on main.
-const WEEK_SOURCE_DEFAULT = "monday";
+const WEEK_SOURCE_DEFAULT = "computed";
 // ─── WEEK SOURCE DEFAULT END ──────────────────────────────────────────────────
 
 // Swap weekCreated/weekDone to Monday-formula values when source==="monday".
@@ -272,16 +273,15 @@ function applyWeekSource(items, source) {
   }));
 }
 
-// ─── TUESDAY-START WEEK NUMBER ────────────────────────────────────────────────
-// Weeks run Tue→Mon. We shift each date back 1 day (Tue becomes Mon, Mon slips
-// into the prior ISO week) then compute ISO week number of the shifted date.
-// Effect: a task created or completed on Monday belongs to the SAME week as
-// the Tuesday it was assigned in — never bumped into the "next" week.
-function tuesdayWeek(dateStr) {
+// ─── ISO WEEK (MONDAY-START) ──────────────────────────────────────────────────
+// Standard ISO 8601 weeks: weeks start Monday, week 1 contains Jan 4.
+// Mirrors what Monday.com's UI shows. (Monday's GraphQL API returns Sun-start
+// for the same WEEKNUM formula — disagrees with its own UI at Sunday boundaries
+// — which is why we compute client-side.)
+function isoWeek(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr.slice(0,10) + "T12:00:00Z");
   if (isNaN(d)) return null;
-  d.setUTCDate(d.getUTCDate() - 1); // shift: Tue→Mon, Mon→Sun (falls into prior ISO week)
   const jan4 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
   const startW1 = new Date(jan4);
   startW1.setUTCDate(jan4.getUTCDate() - ((jan4.getUTCDay() + 6) % 7));
@@ -332,8 +332,8 @@ async function fetchLiveItems() {
   }
   return all.map(item => ({
     ...item,
-    weekCreated: tuesdayWeek(item.createdDate),
-    weekDone: item.completedDate ? tuesdayWeek(item.completedDate) : null,
+    weekCreated: isoWeek(item.createdDate),
+    weekDone: item.completedDate ? isoWeek(item.completedDate) : null,
   }));
 }
 
@@ -1297,8 +1297,8 @@ function Dashboard({ user, onSignOut }){
                   <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,zIndex:11,background:C.panel,border:`1px solid ${C.border}`,borderRadius:10,padding:14,minWidth:280,boxShadow:"0 8px 24px rgba(0,0,0,0.25)",textAlign:"left"}}>
                     <div style={{fontSize:9,color:C.muted,letterSpacing:"0.15em",textTransform:"uppercase",marginBottom:10}}>Week Source</div>
                     {[
-                      {key:"computed",label:"Computed (Tue-start)",sub:"Tuesday→Monday weeks, computed from dates"},
-                      {key:"monday",label:"Monday formula columns",sub:"WEEKNUM() — Sunday-start, from board"},
+                      {key:"computed",label:"Computed (Mon-start ISO)",sub:"Matches Monday.com UI — Mon→Sun weeks, computed from dates"},
+                      {key:"monday",label:"Monday formula columns",sub:"WEEKNUM() via API — Sun-start, disagrees with Monday UI"},
                     ].map(opt=>(
                       <label key={opt.key} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0",cursor:"pointer"}}>
                         <input type="radio" name="weekSource" value={opt.key} checked={weekSource===opt.key} onChange={()=>setWeekSource(opt.key)} style={{marginTop:3,accentColor:C.accent}}/>
