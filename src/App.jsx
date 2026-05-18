@@ -254,6 +254,24 @@ const SEED_ITEMS = [
 const BOARD_ID = "18404792373";
 const MAX_WEEKS = 10;
 
+// ─── WEEK SOURCE DEFAULT START ────────────────────────────────────────────────
+// "computed" = Tuesday-start ISO week (tuesdayWeek below)
+// "monday"   = Monday board formula columns (US Sun-start WEEKNUM)
+// Saved via /api/save-setting → updates this constant on main.
+const WEEK_SOURCE_DEFAULT = "computed";
+// ─── WEEK SOURCE DEFAULT END ──────────────────────────────────────────────────
+
+// Swap weekCreated/weekDone to Monday-formula values when source==="monday".
+// Falls back to computed values if Monday fields are missing (e.g. old seed entries).
+function applyWeekSource(items, source) {
+  if (source !== "monday") return items;
+  return items.map(i => ({
+    ...i,
+    weekCreated: i.mondayWeekCreated ?? i.weekCreated,
+    weekDone: i.mondayWeekDone ?? i.weekDone,
+  }));
+}
+
 // ─── TUESDAY-START WEEK NUMBER ────────────────────────────────────────────────
 // Weeks run Tue→Mon. We shift each date back 1 day (Tue becomes Mon, Mon slips
 // into the prior ISO week) then compute ISO week number of the shifted date.
@@ -1001,7 +1019,7 @@ export default function App(){
 function Dashboard({ user, onSignOut }){
 
 
-  const [items,setItems]=useState(()=>{
+  const [rawItems,setRawItems]=useState(()=>{
     try{ const s=localStorage.getItem("hx_items"); return s?JSON.parse(s):SEED_ITEMS; }catch{ return SEED_ITEMS; }
   });
   const [loading,setLoading]=useState(false);
@@ -1013,17 +1031,36 @@ function Dashboard({ user, onSignOut }){
   const [pendingSeed,setPendingSeed]=useState(null);
   const [seedMsg,setSeedMsg]=useState(null);
   const [selectedPerson,setSelectedPerson]=useState(null);
+  const [weekSource,setWeekSource]=useState(()=>localStorage.getItem("hx_weekSource")||WEEK_SOURCE_DEFAULT);
+  const [settingsOpen,setSettingsOpen]=useState(false);
+  const [savingDefault,setSavingDefault]=useState(false);
+  const [settingMsg,setSettingMsg]=useState(null);
   const C = THEMES[themeName];
+
+  useEffect(()=>{ localStorage.setItem("hx_weekSource",weekSource); },[weekSource]);
+
+  const items = useMemo(()=>applyWeekSource(rawItems,weekSource),[rawItems,weekSource]);
 
   const handleRefresh=useCallback(async()=>{
     setLoading(true);setRefreshMsg("Fetching live data from Monday...");
     try{
       const live=await fetchLiveItems();
-      if(live.length>0){setItems(live);setDataSource("live");localStorage.setItem("hx_items",JSON.stringify(live));setPendingSeed(live);setRefreshMsg(`✓ Loaded ${live.length} items live`);}
+      if(live.length>0){setRawItems(live);setDataSource("live");localStorage.setItem("hx_items",JSON.stringify(live));setPendingSeed(live);setRefreshMsg(`✓ Loaded ${live.length} items live`);}
       else{setRefreshMsg("No data returned, keeping cached data");}
     }catch(e){setRefreshMsg("Refresh failed: "+e.message);}
     finally{setLoading(false);setTimeout(()=>setRefreshMsg(null),4000);}
   },[]);
+
+  const handleSaveDefaultSetting=useCallback(async()=>{
+    setSavingDefault(true);setSettingMsg("Saving default...");
+    try{
+      const resp=await fetch("/api/save-setting",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({weekSource})});
+      const data=await resp.json();
+      if(!resp.ok) throw new Error(data.error||"Failed");
+      setSettingMsg("✓ Default updated (rebuild in ~1m)");
+    }catch(e){setSettingMsg("Failed: "+e.message);}
+    finally{setSavingDefault(false);setTimeout(()=>setSettingMsg(null),5000);}
+  },[weekSource]);
 
   const handleSaveSeed=useCallback(async()=>{
     if(!pendingSeed) return;
@@ -1244,6 +1281,49 @@ function Dashboard({ user, onSignOut }){
             >
               {isLight?"🌙":"☀️"}
             </button>
+            {/* SETTINGS */}
+            <div style={{position:"relative"}}>
+              <button
+                onClick={()=>setSettingsOpen(o=>!o)}
+                title="Settings"
+                style={{background:settingsOpen?C.accent+"18":C.panel,border:`1px solid ${settingsOpen?C.accent+"55":C.border}`,color:settingsOpen?C.accent:C.muted,borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:14,lineHeight:1,transition:"all 0.2s"}}
+              >
+                ⚙
+              </button>
+              {settingsOpen && (
+                <>
+                  <div onClick={()=>setSettingsOpen(false)} style={{position:"fixed",inset:0,zIndex:10}}/>
+                  <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,zIndex:11,background:C.panel,border:`1px solid ${C.border}`,borderRadius:10,padding:14,minWidth:280,boxShadow:"0 8px 24px rgba(0,0,0,0.25)",textAlign:"left"}}>
+                    <div style={{fontSize:9,color:C.muted,letterSpacing:"0.15em",textTransform:"uppercase",marginBottom:10}}>Week Source</div>
+                    {[
+                      {key:"computed",label:"Computed (Tue-start)",sub:"Tuesday→Monday weeks, computed from dates"},
+                      {key:"monday",label:"Monday formula columns",sub:"WEEKNUM() — Sunday-start, from board"},
+                    ].map(opt=>(
+                      <label key={opt.key} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0",cursor:"pointer"}}>
+                        <input type="radio" name="weekSource" value={opt.key} checked={weekSource===opt.key} onChange={()=>setWeekSource(opt.key)} style={{marginTop:3,accentColor:C.accent}}/>
+                        <div>
+                          <div style={{fontSize:12,color:C.text,fontWeight:weekSource===opt.key?600:400}}>{opt.label}</div>
+                          <div style={{fontSize:10,color:C.muted,marginTop:1}}>{opt.sub}</div>
+                        </div>
+                      </label>
+                    ))}
+                    <div style={{borderTop:`1px solid ${C.border}`,marginTop:10,paddingTop:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                      <div style={{fontSize:10,color:C.muted}}>
+                        Default: <span style={{fontFamily:"monospace",color:C.text}}>{WEEK_SOURCE_DEFAULT}</span>
+                      </div>
+                      <button
+                        onClick={handleSaveDefaultSetting}
+                        disabled={savingDefault||weekSource===WEEK_SOURCE_DEFAULT}
+                        style={{fontSize:10,fontFamily:"monospace",background:"transparent",border:`1px solid ${weekSource===WEEK_SOURCE_DEFAULT?C.muted+"44":C.accent+"55"}`,color:weekSource===WEEK_SOURCE_DEFAULT?C.muted:C.accent,borderRadius:6,padding:"3px 10px",cursor:(savingDefault||weekSource===WEEK_SOURCE_DEFAULT)?"not-allowed":"pointer",letterSpacing:"0.06em"}}
+                      >
+                        save as default
+                      </button>
+                    </div>
+                    {settingMsg&&<div style={{fontSize:10,color:C.muted,marginTop:6,fontFamily:"monospace"}}>{settingMsg}</div>}
+                  </div>
+                </>
+              )}
+            </div>
             <button onClick={handleRefresh} disabled={loading} style={{background:loading?"transparent":C.accent+"18",border:`1px solid ${C.accent}55`,color:loading?C.muted:C.accent,borderRadius:8,padding:"7px 14px",cursor:loading?"not-allowed":"pointer",fontSize:11,fontFamily:"inherit",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>
               {loading?"loading...":"↻ refresh live"}
             </button>
